@@ -1,0 +1,499 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>A la Mano Mensajería — Calculadora de Tarifas</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;700;900&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+<style>
+  :root {
+    --crema: #f2ead9;
+    --crema-alta: #faf6ec;
+    --cafe: #3a2a1d;
+    --cafe-suave: #6b5643;
+    --cafe-linea: #ddd0b8;
+    --mostaza: #c98a2b;
+    --mostaza-alta: #e0a13f;
+    --terracota: #a8462f;
+    --verde-ok: #4d7a4a;
+    --radio: 14px;
+    --sombra: 0 10px 30px -12px rgba(58, 42, 29, 0.25);
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--crema);
+    color: var(--cafe);
+    font-family: 'Inter', sans-serif;
+    min-height: 100vh;
+    background-image:
+      radial-gradient(circle at 15% 10%, rgba(201,138,43,0.10), transparent 40%),
+      radial-gradient(circle at 90% 80%, rgba(168,70,47,0.08), transparent 45%);
+  }
+
+  .envolvente {
+    max-width: 720px;
+    margin: 0 auto;
+    padding: 40px 20px 80px;
+  }
+
+  header.marca {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    margin-bottom: 28px;
+    border-bottom: 2px solid var(--cafe-linea);
+    padding-bottom: 16px;
+  }
+
+  header.marca .lockup {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .eyebrow {
+    font-size: 12px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--mostaza);
+    font-weight: 700;
+  }
+
+  h1 {
+    font-family: 'Archivo', sans-serif;
+    font-weight: 900;
+    font-size: 30px;
+    margin: 0;
+    letter-spacing: -0.01em;
+  }
+
+  .ciudad-anio {
+    font-size: 13px;
+    color: var(--cafe-suave);
+    font-weight: 600;
+    text-align: right;
+  }
+
+  .tarjeta {
+    background: var(--crema-alta);
+    border: 1px solid var(--cafe-linea);
+    border-radius: var(--radio);
+    padding: 22px 24px;
+    margin-bottom: 20px;
+    box-shadow: var(--sombra);
+  }
+
+  .tarjeta h2 {
+    font-family: 'Archivo', sans-serif;
+    font-size: 15px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin: 0 0 14px 0;
+    color: var(--cafe-suave);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .punto-estado {
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    background: #c9a97a;
+    flex-shrink: 0;
+  }
+  .punto-estado.ok { background: var(--verde-ok); }
+  .punto-estado.error { background: var(--terracota); }
+
+  .fila {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
+
+  label {
+    display: block;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--cafe-suave);
+    margin-bottom: 6px;
+  }
+
+  input[type="text"], input[type="password"], select {
+    width: 100%;
+    padding: 10px 12px;
+    border-radius: 8px;
+    border: 1.5px solid var(--cafe-linea);
+    background: #fff;
+    color: var(--cafe);
+    font-family: 'Inter', sans-serif;
+    font-size: 14px;
+  }
+
+  input:focus, select:focus {
+    outline: none;
+    border-color: var(--mostaza);
+    box-shadow: 0 0 0 3px rgba(201,138,43,0.18);
+  }
+
+  .campo { margin-bottom: 12px; }
+
+  button {
+    font-family: 'Inter', sans-serif;
+    font-weight: 700;
+    font-size: 14px;
+    border: none;
+    border-radius: 8px;
+    padding: 11px 20px;
+    cursor: pointer;
+    transition: transform 0.08s ease, box-shadow 0.15s ease;
+  }
+  button:focus-visible { outline: 2px solid var(--cafe); outline-offset: 2px; }
+  button:active { transform: translateY(1px); }
+  button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  .btn-primario {
+    background: var(--cafe);
+    color: var(--crema-alta);
+    width: 100%;
+  }
+  .btn-primario:hover:not(:disabled) { background: #2c2013; }
+
+  .btn-secundario {
+    background: var(--mostaza);
+    color: #2b1c08;
+  }
+  .btn-secundario:hover:not(:disabled) { background: var(--mostaza-alta); }
+
+  .mensaje {
+    font-size: 13px;
+    margin-top: 10px;
+    line-height: 1.5;
+  }
+  .mensaje.error { color: var(--terracota); }
+  .mensaje.ok { color: var(--verde-ok); }
+
+  .recargos-lista {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px 16px;
+  }
+
+  .recargo-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    padding: 6px 0;
+  }
+
+  .recargo-item input { width: auto; }
+
+  .recargo-item .valor { margin-left: auto; color: var(--cafe-suave); font-variant-numeric: tabular-nums; }
+
+  .ruta-visual {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 18px 0 6px;
+  }
+
+  .nodo {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: var(--cafe);
+    flex-shrink: 0;
+  }
+  .nodo.destino { background: var(--terracota); }
+
+  .linea-ruta {
+    flex: 1;
+    height: 2px;
+    background: repeating-linear-gradient(
+      90deg, var(--mostaza) 0 8px, transparent 8px 14px
+    );
+    position: relative;
+    overflow: hidden;
+  }
+
+  .linea-ruta::after {
+    content: '';
+    position: absolute;
+    top: -3px;
+    left: -20px;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--mostaza-alta);
+    box-shadow: 0 0 8px var(--mostaza-alta);
+    animation: recorrer 1.8s ease-in-out infinite;
+  }
+
+  @keyframes recorrer {
+    0% { left: -4%; opacity: 0; }
+    10% { opacity: 1; }
+    90% { opacity: 1; }
+    100% { left: 100%; opacity: 0; }
+  }
+
+  .etiquetas-ruta {
+    display: flex;
+    justify-content: space-between;
+    font-size: 12px;
+    color: var(--cafe-suave);
+    font-weight: 600;
+    margin-bottom: 4px;
+  }
+
+  .resultado {
+    background: var(--cafe);
+    color: var(--crema-alta);
+    border-radius: 12px;
+    padding: 18px 20px;
+    margin-top: 16px;
+  }
+
+  .resultado .total-linea {
+    display: flex;
+    justify-content: space-between;
+    font-size: 13px;
+    padding: 4px 0;
+    color: #d9cbb2;
+  }
+
+  .resultado .total-linea.grande {
+    font-family: 'Archivo', sans-serif;
+    font-size: 26px;
+    font-weight: 900;
+    color: var(--mostaza-alta);
+    border-top: 1px solid rgba(255,255,255,0.15);
+    margin-top: 8px;
+    padding-top: 12px;
+  }
+
+  .oculto { display: none !important; }
+
+  footer {
+    text-align: center;
+    font-size: 12px;
+    color: var(--cafe-suave);
+    margin-top: 24px;
+  }
+
+  @media (max-width: 480px) {
+    .fila, .recargos-lista { grid-template-columns: 1fr; }
+    h1 { font-size: 24px; }
+  }
+</style>
+</head>
+<body>
+  <div class="envolvente">
+
+    <header class="marca">
+      <div class="lockup">
+        <span class="eyebrow">A la Mano Mensajería</span>
+        <h1>Calculadora de Tarifas</h1>
+      </div>
+      <span class="ciudad-anio">Armenia · 2026</span>
+    </header>
+
+    <!-- Conexión a Supabase -->
+    <section class="tarjeta">
+      <h2><span id="punto-conexion" class="punto-estado"></span>Conexión a Supabase</h2>
+      <div class="fila">
+        <div class="campo">
+          <label for="input-url">Project URL</label>
+          <input type="text" id="input-url" placeholder="https://xxxxx.supabase.co" />
+        </div>
+        <div class="campo">
+          <label for="input-key">Anon public key</label>
+          <input type="password" id="input-key" placeholder="eyJhbGciOi..." />
+        </div>
+      </div>
+      <button class="btn-secundario" id="btn-conectar">Conectar</button>
+      <div id="mensaje-conexion" class="mensaje"></div>
+    </section>
+
+    <!-- Calculadora -->
+    <section class="tarjeta" id="panel-calculadora">
+      <h2>Ruta del domicilio</h2>
+
+      <div class="fila">
+        <div class="campo">
+          <label for="select-origen">Barrio de origen</label>
+          <select id="select-origen" disabled><option>Conéctate primero</option></select>
+        </div>
+        <div class="campo">
+          <label for="select-destino">Barrio de destino</label>
+          <select id="select-destino" disabled><option>Conéctate primero</option></select>
+        </div>
+      </div>
+
+      <div class="etiquetas-ruta">
+        <span id="etiqueta-origen">Origen</span>
+        <span id="etiqueta-destino">Destino</span>
+      </div>
+      <div class="ruta-visual">
+        <div class="nodo"></div>
+        <div class="linea-ruta"></div>
+        <div class="nodo destino"></div>
+      </div>
+
+      <div style="margin-top:18px;">
+        <label>Recargos aplicables</label>
+        <div class="recargos-lista" id="lista-recargos">
+          <span style="font-size:13px;color:var(--cafe-suave);">Se cargan al conectar…</span>
+        </div>
+      </div>
+
+      <button class="btn-primario" id="btn-calcular" style="margin-top:18px;" disabled>Calcular tarifa</button>
+      <div id="mensaje-calculo" class="mensaje"></div>
+
+      <div id="resultado" class="resultado oculto">
+        <div class="total-linea"><span>Valor base de la ruta</span><span id="res-base">$0</span></div>
+        <div class="total-linea"><span>Recargos aplicados</span><span id="res-recargos">$0</span></div>
+        <div class="total-linea grande"><span>Total</span><span id="res-total">$0</span></div>
+      </div>
+    </section>
+
+    <footer>Calculadora de referencia — usa la función <code>calcular_tarifa()</code> definida en la migración de Supabase.</footer>
+  </div>
+
+<script>
+  let cliente = null;
+  let mapaRecargos = {};
+
+  const $ = (id) => document.getElementById(id);
+  const cop = (n) => '$' + Math.round(n).toLocaleString('es-CO');
+
+  function fijarEstadoConexion(estado, texto) {
+    const punto = $('punto-conexion');
+    punto.className = 'punto-estado' + (estado === 'ok' ? ' ok' : estado === 'error' ? ' error' : '');
+    const msg = $('mensaje-conexion');
+    msg.textContent = texto || '';
+    msg.className = 'mensaje' + (estado === 'ok' ? ' ok' : estado === 'error' ? ' error' : '');
+  }
+
+  async function conectar() {
+    const url = $('input-url').value.trim();
+    const key = $('input-key').value.trim();
+
+    if (!url || !key) {
+      fijarEstadoConexion('error', 'Ingresa la Project URL y la anon key de tu proyecto de Supabase.');
+      return;
+    }
+
+    try {
+      cliente = supabase.createClient(url, key);
+
+      const [{ data: barrios, error: errBarrios }, { data: recargos, error: errRecargos }] =
+        await Promise.all([
+          cliente.from('barrios').select('id, nombre').order('nombre'),
+          cliente.from('recargos').select('codigo, nombre, valor, tipo').order('tipo'),
+        ]);
+
+      if (errBarrios) throw errBarrios;
+      if (errRecargos) throw errRecargos;
+
+      poblarBarrios(barrios || []);
+      poblarRecargos(recargos || []);
+
+      fijarEstadoConexion('ok', `Conectado. ${barrios?.length || 0} barrios y ${recargos?.length || 0} recargos cargados.`);
+      $('btn-calcular').disabled = false;
+    } catch (err) {
+      cliente = null;
+      fijarEstadoConexion('error', 'No se pudo conectar: ' + (err.message || err));
+    }
+  }
+
+  function poblarBarrios(barrios) {
+    const selOrigen = $('select-origen');
+    const selDestino = $('select-destino');
+    const opciones = barrios.map(b => `<option value="${b.id}">${b.nombre}</option>`).join('');
+    selOrigen.innerHTML = opciones || '<option>Sin barrios registrados</option>';
+    selDestino.innerHTML = opciones || '<option>Sin barrios registrados</option>';
+    selOrigen.disabled = selDestino.disabled = barrios.length === 0;
+
+    const actualizarEtiquetas = () => {
+      $('etiqueta-origen').textContent = selOrigen.selectedOptions[0]?.textContent || 'Origen';
+      $('etiqueta-destino').textContent = selDestino.selectedOptions[0]?.textContent || 'Destino';
+    };
+    selOrigen.onchange = actualizarEtiquetas;
+    selDestino.onchange = actualizarEtiquetas;
+    actualizarEtiquetas();
+  }
+
+  function poblarRecargos(recargos) {
+    mapaRecargos = {};
+    const cont = $('lista-recargos');
+    if (!recargos.length) {
+      cont.innerHTML = '<span style="font-size:13px;color:var(--cafe-suave);">No hay recargos configurados.</span>';
+      return;
+    }
+    cont.innerHTML = recargos.map(r => {
+      mapaRecargos[r.codigo] = r.valor;
+      return `
+        <label class="recargo-item" for="rec-${r.codigo}">
+          <input type="checkbox" id="rec-${r.codigo}" data-codigo="${r.codigo}" />
+          ${r.nombre}
+          <span class="valor">${cop(r.valor)}</span>
+        </label>`;
+    }).join('');
+  }
+
+  async function calcular() {
+    const origenId = $('select-origen').value;
+    const destinoId = $('select-destino').value;
+    const msg = $('mensaje-calculo');
+    const resultado = $('resultado');
+
+    msg.textContent = '';
+    msg.className = 'mensaje';
+    resultado.classList.add('oculto');
+
+    if (!cliente) {
+      msg.textContent = 'Conéctate a Supabase primero.';
+      msg.className = 'mensaje error';
+      return;
+    }
+
+    $('btn-calcular').disabled = true;
+    $('btn-calcular').textContent = 'Calculando…';
+
+    try {
+      const { data: valorBase, error } = await cliente.rpc('calcular_tarifa', {
+        p_barrio_origen: origenId,
+        p_barrio_destino: destinoId,
+      });
+
+      if (error) throw error;
+
+      const seleccionados = Array.from(document.querySelectorAll('#lista-recargos input:checked'))
+        .map(el => el.dataset.codigo);
+      const totalRecargos = seleccionados.reduce((sum, cod) => sum + (mapaRecargos[cod] || 0), 0);
+
+      $('res-base').textContent = cop(valorBase);
+      $('res-recargos').textContent = cop(totalRecargos);
+      $('res-total').textContent = cop(Number(valorBase) + totalRecargos);
+      resultado.classList.remove('oculto');
+    } catch (err) {
+      msg.textContent = 'Error al calcular: ' + (err.message || err);
+      msg.className = 'mensaje error';
+    } finally {
+      $('btn-calcular').disabled = false;
+      $('btn-calcular').textContent = 'Calcular tarifa';
+    }
+  }
+
+  $('btn-conectar').addEventListener('click', conectar);
+  $('btn-calcular').addEventListener('click', calcular);
+</script>
+</body>
+</html>
