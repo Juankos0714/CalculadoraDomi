@@ -363,7 +363,10 @@
       </div>
     </section>
 
-    <footer>Calculadora de referencia — usa la función <code>calcular_tarifa()</code> definida en la migración de Supabase.</footer>
+    <footer>Calculadora de referencia — usa la función <code>calcular_tarifa()</code> definida en la migración de Supabase.
+      <br />
+      <a href="admin_barrios.html" style="color:var(--terracota);font-weight:600;">⚙ Panel de barrios y zonas</a>
+    </footer>
   </div>  <script>
   let cliente = null;
   let mapaRecargos = {};
@@ -406,18 +409,24 @@
 
       const [{ data: barrios, error: errBarrios }, { data: recargos, error: errRecargos }] =
         await Promise.all([
-          cliente.from('barrios').select('id, nombre').order('nombre'),
+          cliente.from('barrios').select('id, nombre, zona_id').order('nombre'),
           cliente.from('recargos').select('codigo, nombre, valor, tipo').order('tipo'),
         ]);
 
       if (errBarrios) throw errBarrios;
       if (errRecargos) throw errRecargos;
 
-      poblarBarrios(barrios || []);
+      // Excluir barrios en "Zona Roja" (no disponibles) de los selectores
+      const disponibles = (barrios || []).filter(b => b.zona_id !== 'zona_roja');
+      const excluidos = (barrios || []).length - disponibles.length;
+
+      poblarBarrios(disponibles);
       poblarRecargos(recargos || []);
 
-      fijarEstadoConexion('ok', `Conectado. ${barrios?.length || 0} barrios y ${recargos?.length || 0} recargos cargados.`);
+      fijarEstadoConexion('ok', `Conectado. ${disponibles.length} barrios disponibles${excluidos ? ` (${excluidos} en zona roja excluidos)` : ''} y ${recargos?.length || 0} recargos cargados.`);
       $('btn-calcular').disabled = false;
+      return;
+
     } catch (err) {
       cliente = null;
       fijarEstadoConexion('error', 'No se pudo conectar: ' + (err.message || err));
