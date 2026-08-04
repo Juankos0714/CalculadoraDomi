@@ -97,6 +97,10 @@
   #txt-progreso { font-size: 12px; color: var(--cafe-suave); font-weight: 600; white-space: nowrap; }
   .wizard-cab { display: flex; gap: 10px; align-items: center; margin-bottom: 14px; }
   .wizard-cab input { flex: 1; }
+  #btn-deshacer {
+    white-space: nowrap; padding: 8px 12px; font-size: 12px;
+    max-width: 220px; overflow: hidden; text-overflow: ellipsis;
+  }
   .idx { font-size: 12px; color: var(--cafe-suave); font-weight: 700; white-space: nowrap; }
   .barrio-nombre { font-family: 'Archivo', sans-serif; font-weight: 900; font-size: 28px; margin: 0 0 6px; line-height: 1.15; }
   .chip {
@@ -220,6 +224,7 @@
       <h2>Lista general</h2>
       <div class="wizard-cab">
         <input type="text" id="buscar-lista" placeholder="🔍 Filtrar por nombre…" />
+        <button class="btn-plano" id="btn-deshacer" disabled title="Revoca el último cambio de zona">↩ Deshacer</button>
         <span class="idx" id="idx-lista">0 barrios</span>
       </div>
       <div class="tabla-wrap">
@@ -251,6 +256,7 @@
   let barrios = [];
   let indiceActual = 0;
   let filtroLista = '';
+  let historial = []; // cambios de zona recientes para deshacer
 
   const ZONA_ROJA_ID = 'zona_roja';
 
@@ -351,6 +357,7 @@
     // Empezar el formulario en el primer barrio sin revisar
     const primerPendiente = barrios.findIndex(x => !x.revisado);
     indiceActual = primerPendiente === -1 ? 0 : primerPendiente;
+    historial = []; // los datos se recargaron: limpiar historial en memoria
     renderTodo();
   }
 
@@ -412,6 +419,7 @@
     renderWizard();
     renderLista();
     llenarSelectNuevo();
+    actualizarBotonDeshacer();
   }
 
   function barrioActual() {
@@ -502,17 +510,83 @@
   }
 
   // ── Acciones ──
+  // Actualiza la zona y (si existe la columna) el estado de revisado en Supabase,
+  // con fallback si la migración de `revisado` aún no se ejecutó.
+  async function actualizarBarrio(id, zonaId, revisado) {
+    let { error } = await cliente.from('barrios')
+      .update({ zona_id: zonaId, revisado })
+      .eq('id', id);
+    if (error && /revisado/.test(error.message || '')) {
+      ({ error } = await cliente.from('barrios').update({ zona_id: zonaId }).eq('id', id));
+    }
+    return error;
+  }
+
+  // Guarda la zona y marca el barrio como revisado (persistido en la base),
+  // tanto desde el formulario como desde la lista general.
   async function guardarZona(id, zonaId, barrioLocal, msgId) {
-    const { error } = await cliente.from('barrios').update({ zona_id: zonaId }).eq('id', id);
+    const error = await actualizarBarrio(id, zonaId, true);
     if (error) {
       fijarEstado('error', 'Error al guardar: ' + (error.message || error), msgId || 'mensaje-guardar');
       return false;
     }
     if (barrioLocal) {
+      // Registrar el cambio para poder deshacerlo (solo si de verdad cambió)
+      if (barrioLocal.zona_id !== zonaId) {
+        historial.push({
+          id: barrioLocal.id,
+          nombre: barrioLocal.nombre,
+          zonaAnterior: barrioLocal.zona_id,
+          revisadoAnterior: !!barrioLocal.revisado
+        });
+        if (historial.length > 50) historial.shift(); // límite de seguridad
+      }
       barrioLocal.zona_id = zonaId;
       barrioLocal.revisado = true;
     }
+    actualizarBotonDeshacer();
     return true;
+  }
+
+  function actualizarBotonDeshacer() {
+    const btn = $('btn-deshacer');
+    if (!btn) return;
+    const ultimo = historial[historial.length - 1];
+    btn.disabled = !ultimo;
+    btn.textContent = ultimo ? `↩ Deshacer: ${ultimo.nombre}` : '↩ Deshacer';
+    btn.title = ultimo ? `Revoca el cambio a "${nombreZona(barrios.find(b => b.id === ultimo.id)?.zona_id)}" en ${ultimo.nombre}` : 'Revoca el último cambio de zona';
+  }
+
+  // Revierte el último cambio de zona registrado (lista general o formulario)
+  async function deshacer() {
+    if (!historial.length) {
+      fijarEstado('ok', 'No hay cambios que deshacer.', 'mensaje-lista');
+      return;
+    }
+    const cambio = historial[historial.length - 1]; // ver antes de hacer pop
+    const b = barrios.find(x => x.id === cambio.id);
+    if (!b) {
+      // El barrio fue eliminado: descartar esta entrada y avisar
+      historial.pop();
+      fijarEstado('ok', 'No se pudo deshacer: el barrio fue eliminado.', 'mensaje-lista');
+      actualizarBotonDeshacer();
+      renderTodo();
+      return;
+    }
+    // Restaurar zona anterior y el estado de revisado previo
+    const error = await actualizarBarrio(b.id, cambio.zonaAnterior, cambio.revisadoAnterior);
+    if (error) {
+      // Mantener el cambio en el historial para poder reintentar
+      fijarEstado('error', 'No se pudo deshacer: ' + (error.message || error), 'mensaje-lista');
+      actualizarBotonDeshacer();
+      return;
+    }
+    historial.pop();
+    b.zona_id = cambio.zonaAnterior;
+    b.revisado = cambio.revisadoAnterior;
+    fijarEstado('ok', `Deshecho: ${cambio.nombre} volvió a ${nombreZona(cambio.zonaAnterior)}.`, 'mensaje-lista');
+    actualizarBotonDeshacer();
+    renderTodo();
   }
 
   async function guardarYSiguiente() {
@@ -605,6 +679,7 @@
   $('btn-saltar').addEventListener('click', saltar);
   $('btn-sincronizar').addEventListener('click', sincronizar);
   $('btn-agregar').addEventListener('click', agregarBarrio);
+  $('btn-deshacer').addEventListener('click', deshacer);
   $('buscar-barrio').addEventListener('input', (e) => buscarYSaltar(e.target.value));
   $('buscar-lista').addEventListener('input', (e) => {
     filtroLista = e.target.value;
