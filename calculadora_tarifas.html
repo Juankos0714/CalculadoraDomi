@@ -364,9 +364,7 @@
     </section>
 
     <footer>Calculadora de referencia — usa la función <code>calcular_tarifa()</code> definida en la migración de Supabase.</footer>
-  </div>
-
-<script>
+  </div>  <script>
   let cliente = null;
   let mapaRecargos = {};
 
@@ -381,15 +379,28 @@
     msg.className = 'mensaje' + (estado === 'ok' ? ' ok' : estado === 'error' ? ' error' : '');
   }
 
-  async function conectar() {
-    const url = $('input-url').value.trim();
-    const key = $('input-key').value.trim();
+  // ── Auto-conexión al cargar vía /api/config ──
+  async function autoConectar() {
+    try {
+      const resp = await fetch('/api/config');
+      if (!resp.ok) throw new Error('HTTP ' + resp.status);
+      const { url, key, error } = await resp.json();
+      if (error) throw new Error(error);
+      if (!url || !key) throw new Error('Credenciales vacías');
 
-    if (!url || !key) {
-      fijarEstadoConexion('error', 'Ingresa la Project URL y la anon key de tu proyecto de Supabase.');
-      return;
+      // Rellenar los campos del formulario por feedback visual
+      $('input-url').value = url;
+      $('input-key').value = key;
+
+      await conectarCon(url, key);
+    } catch (err) {
+      // La función no está disponible → modo manual (formulario visible)
+      console.warn('Auto-conexión no disponible:', err.message);
+      fijarEstadoConexion('', 'Ingresa las credenciales de Supabase manualmente o configúralas en Vercel (SUPABASE_URL y SUPABASE_ANON_KEY).');
     }
+  }
 
+  async function conectarCon(url, key) {
     try {
       cliente = supabase.createClient(url, key);
 
@@ -411,6 +422,18 @@
       cliente = null;
       fijarEstadoConexion('error', 'No se pudo conectar: ' + (err.message || err));
     }
+  }
+
+  async function conectar() {
+    const url = $('input-url').value.trim();
+    const key = $('input-key').value.trim();
+
+    if (!url || !key) {
+      fijarEstadoConexion('error', 'Ingresa la Project URL y la anon key de tu proyecto de Supabase.');
+      return;
+    }
+
+    await conectarCon(url, key);
   }
 
   function poblarBarrios(barrios) {
@@ -494,6 +517,9 @@
 
   $('btn-conectar').addEventListener('click', conectar);
   $('btn-calcular').addEventListener('click', calcular);
+
+  // ── Iniciar auto-conexión ──
+  autoConectar();
 </script>
 </body>
 </html>
