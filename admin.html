@@ -1,0 +1,1314 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>A la Mano Mensajería — Panel de Administración</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;700;900&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+<style>
+  :root {
+    --crema: #f2ead9;
+    --crema-alta: #faf6ec;
+    --cafe: #3a2a1d;
+    --cafe-suave: #6b5643;
+    --cafe-linea: #ddd0b8;
+    --mostaza: #c98a2b;
+    --mostaza-alta: #e0a13f;
+    --terracota: #a8462f;
+    --verde-ok: #4d7a4a;
+    --rojo: #b02a1e;
+    --radio: 14px;
+    --sombra: 0 10px 30px -12px rgba(58, 42, 29, 0.25);
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--crema);
+    color: var(--cafe);
+    font-family: 'Inter', sans-serif;
+    min-height: 100vh;
+    background-image:
+      radial-gradient(circle at 15% 10%, rgba(201,138,43,0.10), transparent 40%),
+      radial-gradient(circle at 90% 80%, rgba(168,70,47,0.08), transparent 45%);
+  }
+  .envolvente { max-width: 980px; margin: 0 auto; padding: 40px 20px 80px; }
+  header.marca {
+    display: flex; align-items: baseline; justify-content: space-between;
+    margin-bottom: 28px; border-bottom: 2px solid var(--cafe-linea); padding-bottom: 16px;
+  }
+  header.marca .lockup { display: flex; flex-direction: column; gap: 2px; }
+  .eyebrow { font-size: 12px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--mostaza); font-weight: 700; }
+  h1 { font-family: 'Archivo', sans-serif; font-weight: 900; font-size: 30px; margin: 0; letter-spacing: -0.01em; }
+  .ciudad-anio { font-size: 13px; color: var(--cafe-suave); font-weight: 600; text-align: right; }
+  .tarjeta {
+    background: var(--crema-alta); border: 1px solid var(--cafe-linea);
+    border-radius: var(--radio); padding: 22px 24px; margin-bottom: 20px; box-shadow: var(--sombra);
+  }
+  .tarjeta h2 {
+    font-family: 'Archivo', sans-serif; font-size: 15px; text-transform: uppercase;
+    letter-spacing: 0.06em; margin: 0 0 14px 0; color: var(--cafe-suave);
+    display: flex; align-items: center; gap: 8px;
+  }
+  .punto-estado { width: 9px; height: 9px; border-radius: 50%; background: #c9a97a; flex-shrink: 0; }
+  .punto-estado.ok { background: var(--verde-ok); }
+  .punto-estado.error { background: var(--terracota); }
+  .fila { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .fila.tres { grid-template-columns: 2fr 1fr 1fr; }
+  label { display: block; font-size: 12px; font-weight: 600; color: var(--cafe-suave); margin-bottom: 6px; }
+  input[type="text"], input[type="password"], input[type="email"], input[type="number"], select {
+    width: 100%; padding: 10px 12px; border-radius: 8px; border: 1.5px solid var(--cafe-linea);
+    background: #fff; color: var(--cafe); font-family: 'Inter', sans-serif; font-size: 14px;
+  }
+  input:focus, select:focus { outline: none; border-color: var(--mostaza); box-shadow: 0 0 0 3px rgba(201,138,43,0.18); }
+  .campo { margin-bottom: 12px; }
+  button {
+    font-family: 'Inter', sans-serif; font-weight: 700; font-size: 14px; border: none;
+    border-radius: 8px; padding: 11px 20px; cursor: pointer; transition: transform 0.08s ease, box-shadow 0.15s ease;
+  }
+  button:focus-visible { outline: 2px solid var(--cafe); outline-offset: 2px; }
+  button:active { transform: translateY(1px); }
+  button:disabled { opacity: 0.5; cursor: not-allowed; }
+  .btn-primario { background: var(--cafe); color: var(--crema-alta); }
+  .btn-primario:hover:not(:disabled) { background: #2c2013; }
+  .btn-secundario { background: var(--mostaza); color: #2b1c08; }
+  .btn-secundario:hover:not(:disabled) { background: var(--mostaza-alta); }
+  .btn-plano { background: transparent; color: var(--cafe-suave); border: 1.5px solid var(--cafe-linea); }
+  .btn-plano:hover:not(:disabled) { background: var(--crema); }
+  .btn-peligro { background: transparent; color: var(--rojo); border: 1.5px solid var(--rojo); }
+  .btn-peligro:hover:not(:disabled) { background: #fbe4df; }
+  .btn-borrar {
+    background: transparent; color: var(--rojo); border: 1px solid transparent; border-radius: 8px;
+    padding: 4px 8px; font-size: 15px; line-height: 1;
+  }
+  .btn-borrar:hover { border-color: var(--rojo); }
+  .mensaje { font-size: 13px; margin-top: 10px; line-height: 1.5; }
+  .mensaje.error { color: var(--rojo); }
+  .mensaje.ok { color: var(--verde-ok); }
+  .mensaje.aviso { color: var(--mostaza); }
+  .oculto { display: none !important; }
+  .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 16px; }
+  .stat {
+    background: #fff; border: 1px solid var(--cafe-linea); border-radius: 10px;
+    padding: 12px; display: flex; flex-direction: column; gap: 2px; text-align: center;
+  }
+  .stat .num { font-family: 'Archivo', sans-serif; font-weight: 900; font-size: 26px; }
+  .stat .etiq { font-size: 11px; color: var(--cafe-suave); text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600; }
+  .stat.roja .num { color: var(--rojo); }
+  .pestanas { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .pestana { background: #fff; color: var(--cafe-suave); border: 1.5px solid var(--cafe-linea); }
+  .pestana.activa { background: var(--cafe); color: var(--crema-alta); border-color: var(--cafe); }
+  .progreso { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
+  .barra { flex: 1; height: 10px; background: var(--cafe-linea); border-radius: 99px; overflow: hidden; }
+  .barra > div { height: 100%; width: 0; background: var(--mostaza); border-radius: 99px; transition: width 0.3s ease; }
+  #txt-progreso { font-size: 12px; color: var(--cafe-suave); font-weight: 600; white-space: nowrap; }
+  .wizard-cab { display: flex; gap: 10px; align-items: center; margin-bottom: 14px; }
+  .wizard-cab input { flex: 1; }
+  #btn-deshacer {
+    white-space: nowrap; padding: 8px 12px; font-size: 12px;
+    max-width: 220px; overflow: hidden; text-overflow: ellipsis;
+  }
+  .idx { font-size: 12px; color: var(--cafe-suave); font-weight: 700; white-space: nowrap; }
+  .barrio-nombre { font-family: 'Archivo', sans-serif; font-weight: 900; font-size: 28px; margin: 0 0 6px; line-height: 1.15; }
+  .chip {
+    display: inline-block; font-size: 12px; font-weight: 700; padding: 4px 12px;
+    border-radius: 99px; background: var(--crema); border: 1px solid var(--cafe-linea); color: var(--cafe-suave); margin-bottom: 16px;
+  }
+  .chip.roja { background: #fbe4df; border-color: var(--rojo); color: var(--rojo); }
+  .opciones-zona { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 18px; }
+  .opciones-zona label {
+    position: relative; cursor: pointer; border: 1.5px solid var(--cafe-linea); background: #fff;
+    border-radius: 10px; padding: 12px 14px; font-size: 14px; font-weight: 600; color: var(--cafe);
+    display: flex; align-items: center; gap: 10px; transition: all 0.12s ease;
+  }
+  .opciones-zona label:hover { border-color: var(--mostaza); }
+  .opciones-zona label.sel { border-color: var(--mostaza); background: #fbf3e0; box-shadow: 0 0 0 3px rgba(201,138,43,0.15); }
+  .opciones-zona label.roja.sel { border-color: var(--rojo); background: #fbe4df; box-shadow: 0 0 0 3px rgba(176,42,30,0.15); }
+  .opciones-zona input { display: none; }
+  .opciones-zona .marca-radio {
+    width: 16px; height: 16px; border-radius: 50%; border: 2px solid var(--cafe-linea); flex-shrink: 0; background: #fff;
+  }
+  .opciones-zona label.sel .marca-radio { border: 5px solid var(--mostaza); }
+  .opciones-zona label.roja.sel .marca-radio { border-color: var(--rojo); }
+  .acciones { display: flex; gap: 10px; flex-wrap: wrap; }
+  .acciones .btn-primario { flex: 1 1 200px; }
+  .tabla-wrap { max-height: 420px; overflow: auto; border: 1px solid var(--cafe-linea); border-radius: 10px; margin-bottom: 16px; }
+  table.tabla { width: 100%; border-collapse: collapse; font-size: 13px; background: #fff; }
+  .tabla th {
+    text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em;
+    color: var(--cafe-suave); padding: 10px 12px; background: var(--crema); border-bottom: 2px solid var(--cafe-linea);
+    position: sticky; top: 0; z-index: 1;
+  }
+  .tabla td { padding: 8px 12px; border-bottom: 1px solid #eee3cd; vertical-align: middle; }
+  .tabla td select { width: auto; min-width: 150px; font-size: 12px; padding: 6px 8px; }
+  .badge { font-size: 11px; font-weight: 700; padding: 3px 10px; border-radius: 99px; white-space: nowrap; }
+  .badge.ok { background: #e3efe1; color: var(--verde-ok); }
+  .badge.roja { background: #fbe4df; color: var(--rojo); }
+  .badge.pend { background: var(--crema); color: var(--cafe-suave); }
+  .badge.mostaza { background: #fbf3e0; color: #8a5a10; }
+  .badge.admin { background: var(--cafe); color: var(--crema-alta); }
+  .badge.lectura { background: var(--crema); color: var(--cafe-suave); }
+  .agregar { align-items: end; }
+  /* Matriz de tarifas */
+  .matriz-wrap { overflow: auto; border: 1px solid var(--cafe-linea); border-radius: 10px; margin-bottom: 14px; max-height: 460px; }
+  table.matriz { border-collapse: collapse; font-size: 12px; background: #fff; min-width: 640px; }
+  .matriz th, .matriz td { padding: 6px; border: 1px solid #eee3cd; text-align: center; }
+  .matriz thead th {
+    position: sticky; top: 0; background: var(--cafe); color: var(--crema-alta); z-index: 2;
+    font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.03em; padding: 8px 6px; white-space: nowrap;
+  }
+  .matriz thead th.esquina { background: var(--cafe); color: #c9b89a; font-weight: 600; }
+  .matriz tbody th {
+    position: sticky; left: 0; background: var(--crema); z-index: 1;
+    font-size: 11px; text-align: left; padding: 8px 10px; white-space: nowrap; font-weight: 700; color: var(--cafe);
+    border: 1px solid #eee3cd; border-right: 2px solid var(--cafe-linea);
+  }
+  .matriz input {
+    width: 72px; text-align: center; padding: 6px 4px; font-size: 13px; border-radius: 6px;
+    border: 1.5px solid var(--cafe-linea); background: #fff; font-family: 'Inter', sans-serif;
+    font-variant-numeric: tabular-nums; font-weight: 600;
+  }
+  .matriz input:focus { outline: none; border-color: var(--mostaza); box-shadow: 0 0 0 3px rgba(201,138,43,0.18); }
+  .matriz input.sucio { border-color: var(--mostaza); background: #fbf3e0; }
+  .matriz td.diagonal input { background: #f3ecdc; font-weight: 800; }
+  .matriz .celda-vacia { color: #cfc3aa; font-size: 11px; }
+  .barra-matriz { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .barra-matriz .mensaje { margin: 0; }
+  footer { text-align: center; font-size: 12px; color: var(--cafe-suave); margin-top: 24px; }
+  footer a { color: var(--terracota); font-weight: 600; }
+  .usuario-info { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .usuario-info .email { font-weight: 600; font-size: 14px; }
+  @media (max-width: 620px) {
+    .fila, .fila.tres, .opciones-zona { grid-template-columns: 1fr; }
+    h1 { font-size: 24px; }
+    .stats { grid-template-columns: repeat(2, 1fr); }
+  }
+</style>
+</head>
+<body>
+<div class="envolvente">
+
+  <header class="marca">
+    <div class="lockup">
+      <span class="eyebrow">A la Mano Mensajería</span>
+      <h1>Panel de Administración</h1>
+    </div>
+    <span class="ciudad-anio">Armenia · 2026</span>
+  </header>
+
+  <!-- ── Inicio de sesión ── -->
+  <section class="tarjeta" id="tarjeta-login">
+    <h2><span id="punto-conexion" class="punto-estado"></span>Inicio de sesión</h2>
+    <div class="fila">
+      <div class="campo">
+        <label for="input-url">Project URL</label>
+        <input type="text" id="input-url" placeholder="https://xxxxx.supabase.co" />
+      </div>
+      <div class="campo">
+        <label for="input-key">Anon public key</label>
+        <input type="password" id="input-key" placeholder="eyJhbGciOi..." />
+      </div>
+    </div>
+    <div class="fila">
+      <div class="campo">
+        <label for="input-email">Correo del administrador</label>
+        <input type="email" id="input-email" placeholder="admin@tudominio.com" autocomplete="username" />
+      </div>
+      <div class="campo">
+        <label for="input-pass">Contraseña</label>
+        <input type="password" id="input-pass" placeholder="••••••••" autocomplete="current-password" />
+      </div>
+    </div>
+    <div class="acciones">
+      <button class="btn-primario" id="btn-ingresar" style="flex:1 1 220px;">Ingresar</button>
+    </div>
+    <div id="mensaje-login" class="mensaje"></div>
+  </section>
+
+  <!-- ── Panel administrativo ── -->
+  <div id="panel-admin" class="oculto">
+
+    <section class="tarjeta">
+      <div class="usuario-info">
+        <div style="flex:1;">
+          <div style="font-size:11px;text-transform:uppercase;letter-spacing:0.08em;color:var(--cafe-suave);font-weight:700;">Sesión iniciada como</div>
+          <div class="email" id="usuario-email">—</div>
+        </div>
+        <span class="badge admin" id="badge-rol">Administrador</span>
+        <button class="btn-plano" id="btn-salir">Salir</button>
+      </div>
+      <div id="mensaje-sesion" class="mensaje"></div>
+    </section>
+
+    <!-- Resumen -->
+    <section class="tarjeta">
+      <h2><span id="punto-carga" class="punto-estado"></span>Resumen</h2>
+      <div class="stats">
+        <div class="stat"><span class="num" id="st-zonas">0</span><span class="etiq">Zonas</span></div>
+        <div class="stat"><span class="num" id="st-tarifas">0</span><span class="etiq">Tarifas</span></div>
+        <div class="stat"><span class="num" id="st-barrios">0</span><span class="etiq">Barrios</span></div>
+        <div class="stat roja"><span class="num" id="st-roja">0</span><span class="etiq">Zona roja</span></div>
+      </div>
+      <div class="pestanas">
+        <button class="pestana activa" id="tab-zonas">Zonas</button>
+        <button class="pestana" id="tab-tarifas">Tarifas</button>
+        <button class="pestana" id="tab-barrios">Barrios</button>
+        <button class="pestana" id="tab-recargos">Recargos</button>
+      </div>
+    </section>
+
+    <!-- ── Zonas ── -->
+    <section class="tarjeta" id="panel-zonas">
+      <h2>Zonas tarifarias</h2>
+      <div class="fila agregar" style="margin-bottom:14px;">
+        <div class="campo">
+          <label for="zona-nombre">Nueva zona</label>
+          <input type="text" id="zona-nombre" placeholder="Nombre de la zona (ej: Caño Cristales)" />
+        </div>
+        <div class="campo">
+          <label for="zona-tipo">Tipo</label>
+          <select id="zona-tipo">
+            <option value="urbana">Urbana</option>
+            <option value="destino_solo">Solo destino</option>
+            <option value="no_disponible">No disponible</option>
+          </select>
+        </div>
+        <div class="campo">
+          <label for="zona-descripcion">Descripción</label>
+          <input type="text" id="zona-descripcion" placeholder="Opcional" />
+        </div>
+      </div>
+      <button class="btn-secundario" id="btn-agregar-zona">+ Crear zona</button>
+      <div id="mensaje-zonas" class="mensaje"></div>
+      <div class="tabla-wrap" style="margin-top:14px;">
+        <table class="tabla">
+          <thead><tr><th>Zona</th><th>Tipo</th><th>Barrios</th><th style="width:120px;">Acciones</th></tr></thead>
+          <tbody id="tbody-zonas"></tbody>
+        </table>
+      </div>
+      <p style="font-size:12px;color:var(--cafe-suave);margin:0;">
+        Las zonas aparecen automáticamente como filas y columnas en la matriz de tarifas.
+        No se puede eliminar una zona que tenga barrios asignados.
+      </p>
+    </section>
+
+    <!-- ── Tarifas (matriz) ── -->
+    <section class="tarjeta oculto" id="panel-tarifas">
+      <h2>Matriz de tarifas por zona</h2>
+      <div class="barra-matriz">
+        <button class="btn-primario" id="btn-guardar-tarifas" disabled>Guardar cambios</button>
+        <button class="btn-plano" id="btn-descartar-tarifas" disabled>Descartar</button>
+        <span class="idx" id="idx-cambios">Sin cambios pendientes</span>
+      </div>
+      <div id="mensaje-tarifas" class="mensaje"></div>
+      <div class="matriz-wrap" style="margin-top:14px;">
+        <table class="matriz" id="matriz-tarifas"></table>
+      </div>
+      <p style="font-size:12px;color:var(--cafe-suave);margin:0;">
+        Fila = zona de <strong>origen</strong>, columna = zona de <strong>destino</strong>.
+        La diagonal es la tarifa dentro del mismo sector. Los valores se guardan en la tabla <code>tarifas</code>
+        y los usa la función <code>calcular_tarifa()</code> de la calculadora.
+      </p>
+    </section>
+
+    <!-- ── Barrios ── -->
+    <section class="tarjeta oculto" id="panel-barrios">
+      <h2>Gestión de barrios</h2>
+      <div class="pestanas" style="margin-bottom:14px;">
+        <button class="pestana activa" id="tab-wizard">Formulario por barrio</button>
+        <button class="pestana" id="tab-lista">Lista general</button>
+        <button class="btn-plano" id="btn-sincronizar" style="margin-left:auto;">↻ Sincronizar barrios.json</button>
+      </div>
+      <div id="mensaje-sync" class="mensaje"></div>
+
+      <div id="sub-wizard">
+        <div class="progreso">
+          <div class="barra"><div id="barra-progreso"></div></div>
+          <span id="txt-progreso">0 de 0 revisados</span>
+        </div>
+        <div class="wizard-cab">
+          <input type="text" id="buscar-barrio" placeholder="🔍 Buscar un barrio y saltar a él…" />
+          <span class="idx" id="idx-barrio">Barrio 1 de 1</span>
+        </div>
+        <h3 class="barrio-nombre" id="barrio-nombre">—</h3>
+        <span class="chip" id="chip-zona">Sin zona asignada</span>
+        <div class="opciones-zona" id="opciones-zona"></div>
+        <div class="acciones">
+          <button class="btn-plano" id="btn-anterior">← Anterior</button>
+          <button class="btn-plano" id="btn-saltar">Saltar</button>
+          <button class="btn-primario" id="btn-guardar">Guardar y siguiente →</button>
+        </div>
+        <div id="mensaje-guardar" class="mensaje"></div>
+      </div>
+
+      <div id="sub-lista" class="oculto">
+        <div class="wizard-cab">
+          <input type="text" id="buscar-lista" placeholder="🔍 Filtrar por nombre…" />
+          <button class="btn-plano" id="btn-deshacer" disabled title="Revoca el último cambio de zona">↩ Deshacer</button>
+          <span class="idx" id="idx-lista">0 barrios</span>
+        </div>
+        <div class="tabla-wrap">
+          <table class="tabla">
+            <thead><tr><th>Barrio</th><th>Zona tarifaria</th><th>Estado</th><th></th></tr></thead>
+            <tbody id="tbody-barrios"></tbody>
+          </table>
+        </div>
+        <div class="fila agregar">
+          <div class="campo">
+            <label for="nuevo-nombre">Nuevo barrio</label>
+            <input type="text" id="nuevo-nombre" placeholder="Nombre del barrio" />
+          </div>
+          <div class="campo">
+            <label for="nuevo-zona">Zona tarifaria</label>
+            <select id="nuevo-zona"></select>
+          </div>
+        </div>
+        <button class="btn-secundario" id="btn-agregar">+ Agregar barrio</button>
+        <div id="mensaje-lista" class="mensaje"></div>
+      </div>
+    </section>
+
+    <!-- ── Recargos ── -->
+    <section class="tarjeta oculto" id="panel-recargos">
+      <h2>Recargos</h2>
+      <div class="fila agregar" style="margin-bottom:14px;">
+        <div class="campo">
+          <label for="rec-codigo">Código</label>
+          <input type="text" id="rec-codigo" placeholder="ej: peso_20" />
+        </div>
+        <div class="campo">
+          <label for="rec-nombre">Nombre</label>
+          <input type="text" id="rec-nombre" placeholder="ej: Más de 20 kilos" />
+        </div>
+        <div class="campo">
+          <label for="rec-tipo">Tipo</label>
+          <input type="text" id="rec-tipo" placeholder="ej: peso" />
+        </div>
+        <div class="campo">
+          <label for="rec-valor">Valor ($)</label>
+          <input type="number" id="rec-valor" min="0" step="100" placeholder="3000" />
+        </div>
+      </div>
+      <button class="btn-secundario" id="btn-agregar-recargo">+ Agregar recargo</button>
+      <div id="mensaje-recargos" class="mensaje"></div>
+      <div class="tabla-wrap" style="margin-top:14px;">
+        <table class="tabla">
+          <thead><tr><th>Código</th><th>Nombre</th><th>Tipo</th><th>Valor</th><th style="width:60px;"></th></tr></thead>
+          <tbody id="tbody-recargos"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <footer>
+      Panel de administración — <a href="calculadora_tarifas.html">volver a la calculadora</a>
+    </footer>
+  </div>
+
+</div>
+<script>
+  let cliente = null;
+  let sesion = null;
+  let soyAdmin = false;
+  let zonas = [];
+  let tarifas = {};               // "origen|destino" -> valor
+  let recargos = [];
+  let barrios = [];
+  let indiceActual = 0;
+  let filtroLista = '';
+  let historial = [];             // cambios de zona recientes (deshacer)
+  let cambiosTarifas = new Map(); // "origen|destino" -> valor pendiente
+  let borradosTarifas = new Set(); // claves de tarifas marcadas para eliminar
+  let verificacionRol = 'ok';      // 'ok' | 'no_admin' | 'sin_funcion'
+  let zonaEnEdicion = null;       // zona en modo edición (id)
+
+  const ZONA_ROJA_ID = 'zona_roja';
+
+  // Orden canónico de las zonas (mismas slugs que la migración de Supabase)
+  const ORDEN_ZONAS = [
+    'centro', 'norte_1_18', 'norte_19_37', 'norte_38_50',
+    'sur_27_50', 'sur_despues_naranjos', 'sur_despues_puerto_espejo',
+    'villa_inglesa', 'cano_cristales', 'setta_departamental'
+  ];
+
+  // Mapa zona de barrios.json -> zona_id de Supabase
+  const MAPA_JSON_ZONA = {
+    'Centro': 'centro',
+    'Norte (38-50)': 'norte_38_50',
+    'Norte (19-37)': 'norte_19_37',
+    'Norte (1-18)': 'norte_1_18',
+    'Sur (calle 27 - calle 50)': 'sur_27_50',
+    'Sur (después de Los Naranjos y Platinos)': 'sur_despues_naranjos',
+    'Sur (después de Puerto Espejo y Cementerio)': 'sur_despues_puerto_espejo'
+  };
+
+  const $ = (id) => document.getElementById(id);
+  const cop = (n) => '$' + Math.round(Number(n) || 0).toLocaleString('es-CO');
+
+  function fijarEstado(estado, texto, idMsg, idPunto) {
+    const msg = $(idMsg);
+    if (msg) {
+      msg.textContent = texto || '';
+      msg.className = 'mensaje' + (estado === 'ok' ? ' ok' : estado === 'error' ? ' error' : estado === 'aviso' ? ' aviso' : '');
+    }
+    const punto = $(idPunto);
+    if (punto) punto.className = 'punto-estado' + (estado === 'ok' ? ' ok' : estado === 'error' ? ' error' : '');
+  }
+
+  // ── Conexión + sesión ──
+  async function autoConectar() {
+    try {
+      const resp = await fetch('/api/config');
+      if (!resp.ok) throw new Error('HTTP ' + resp.status);
+      const { url, key, error } = await resp.json();
+      if (error) throw new Error(error);
+      if (!url || !key) throw new Error('Credenciales vacías');
+      $('input-url').value = url;
+      $('input-key').value = key;
+      return true;
+    } catch (err) {
+      console.warn('Auto-conexión no disponible:', err.message);
+      fijarEstado('', 'Ingresa las credenciales manualmente (o configúralas en Vercel).', 'mensaje-login', 'punto-conexion');
+      return false;
+    }
+  }
+
+  async function conectar(url, key) {
+    cliente = supabase.createClient(url, key);
+    const { data, error } = await cliente.auth.getSession();
+    if (error) throw error;
+    if (data.session) {
+      sesion = data.session;
+      await cargarDatos();
+      mostrarPanel();
+    } else {
+      fijarEstado('', 'Conectado. Ingresa con tu correo de administrador.', 'mensaje-login', 'punto-conexion');
+    }
+  }
+
+  async function ingresar() {
+    const url = $('input-url').value.trim();
+    const key = $('input-key').value.trim();
+    const email = $('input-email').value.trim();
+    const pass = $('input-pass').value;
+    if (!url || !key) {
+      fijarEstado('error', 'Ingresa la Project URL y la anon key.', 'mensaje-login', 'punto-conexion');
+      return;
+    }
+    if (!email || !pass) {
+      fijarEstado('error', 'Ingresa tu correo y contraseña.', 'mensaje-login', 'punto-conexion');
+      return;
+    }
+    try {
+      await conectar(url, key);
+      if (sesion) { $('input-pass').value = ''; return; }
+      const { data, error } = await cliente.auth.signInWithPassword({ email, password: pass });
+      if (error) throw error;
+      sesion = data.session;
+      try {
+        await cargarDatos();
+      } catch (errData) {
+        console.error('Login OK pero falló la carga de datos:', errData);
+        const msj = /relation .* does not exist/.test(errData.message || '')
+          ? 'Sesión iniciada, pero faltan tablas en la base (¿migración pendiente?). Ejecuta migracion_admin_zonas_tarifas.sql en Supabase.'
+          : 'Sesión iniciada, pero no se pudieron cargar los datos: ' + (errData.message || errData);
+        fijarEstado('aviso', msj, 'mensaje-login', 'punto-conexion');
+        return;
+      }
+      mostrarPanel();
+      $('input-pass').value = '';
+    } catch (err) {
+      fijarEstado('error', 'No se pudo iniciar sesión: ' + (err.message || err), 'mensaje-login', 'punto-conexion');
+    }
+  }
+
+  async function salir() {
+    await cliente.auth.signOut();
+    sesion = null;
+    soyAdmin = false;
+    $('panel-admin').classList.add('oculto');
+    $('tarjeta-login').classList.remove('oculto');
+    fijarEstado('ok', 'Sesión cerrada.', 'mensaje-login', 'punto-conexion');
+  }
+
+  function mostrarPanel() {
+    $('tarjeta-login').classList.add('oculto');
+    $('panel-admin').classList.remove('oculto');
+    $('usuario-email').textContent = sesion.user?.email || '—';
+    $('badge-rol').textContent = soyAdmin ? 'Administrador' : 'Solo lectura';
+    $('badge-rol').className = 'badge ' + (soyAdmin ? 'admin' : 'lectura');
+    if (!soyAdmin) {
+      const msj = verificacionRol === 'sin_funcion'
+        ? 'No se pudo verificar tu rol: la función es_admin() no existe. Ejecuta la migración migracion_admin_zonas_tarifas.sql en Supabase y vuelve a iniciar sesión.'
+        : 'Tu usuario no figura en la tabla `admins`. Puedes ver los datos, pero NO podrás guardar cambios. Pídele al dueño del proyecto que te agregue.';
+      fijarEstado('aviso', msj, 'mensaje-sesion', 'punto-carga');
+    } else {
+      fijarEstado('ok', 'Sesión verificada. Tienes permisos de administrador.', 'mensaje-sesion', 'punto-carga');
+    }
+  }
+
+  // ── Carga de datos ──
+  async function cargarDatos() {
+    const [{ data: z, error: ez },
+           { data: t, error: et },
+           { data: r, error: er },
+           resBarrios] = await Promise.all([
+      cliente.from('zonas').select('id, nombre, tipo, descripcion'),
+      cliente.from('tarifas').select('zona_origen_id, zona_destino_id, valor'),
+      cliente.from('recargos').select('codigo, nombre, valor, tipo'),
+      cliente.from('barrios').select('id, nombre, zona_id, revisado')
+    ]);
+    if (ez) throw ez;
+    if (et) throw et;
+    if (er) throw er;
+    let b = resBarrios.data;
+    let eb = resBarrios.error;
+    if (eb) {
+      const retry = await cliente.from('barrios').select('id, nombre, zona_id');
+      if (retry.error) throw retry.error;
+      b = (retry.data || []).map(x => ({ ...x, revisado: false }));
+    }
+
+    zonas = (z || []).sort((a, c) => {
+      const ia = ORDEN_ZONAS.indexOf(a.id);
+      const ic = ORDEN_ZONAS.indexOf(c.id);
+      return (ia === -1 ? 999 : ia) - (ic === -1 ? 999 : ic) || a.nombre.localeCompare(c.nombre);
+    });
+    tarifas = {};
+    for (const x of (t || [])) tarifas[x.zona_origen_id + '|' + x.zona_destino_id] = x.valor;
+    recargos = (r || []).sort((a, c) => a.codigo.localeCompare(c.codigo));
+    barrios = (b || []).sort((a, c) => a.nombre.localeCompare(c.nombre));
+    indiceActual = barrios.findIndex(x => !x.revisado);
+    if (indiceActual === -1) indiceActual = 0;
+    historial = [];
+    cambiosTarifas.clear();
+    borradosTarifas.clear();
+    zonaEnEdicion = null;
+
+    // ¿Es admin? (función creada por la migración)
+    try {
+      const { data: ok } = await cliente.rpc('es_admin');
+      soyAdmin = !!ok;
+      verificacionRol = soyAdmin ? 'ok' : 'no_admin';
+    } catch (err) {
+      console.warn('No se pudo verificar rol admin (¿migración ejecutada?):', err.message);
+      soyAdmin = false;
+      verificacionRol = 'sin_funcion';
+    }
+
+    actualizarPestanasSegunPermisos();
+    renderTodo();
+  }
+
+  function actualizarPestanasSegunPermisos() {
+    // Con permisos de solo lectura se ocultan los botones de escritura
+    const escritura = ['btn-agregar-zona', 'btn-guardar-tarifas', 'btn-descartar-tarifas',
+      'btn-sincronizar', 'btn-guardar', 'btn-agregar', 'btn-agregar-recargo'];
+    for (const id of escritura) {
+      const el = $(id);
+      if (el) el.disabled = !soyAdmin;
+    }
+  }
+
+  // ── Renderizado global ──
+  function renderTodo() {
+    $('st-zonas').textContent = zonas.length;
+    $('st-tarifas').textContent = Object.keys(tarifas).length;
+    $('st-barrios').textContent = barrios.length;
+    $('st-roja').textContent = barrios.filter(b => b.zona_id === ZONA_ROJA_ID).length;
+    renderZonas();
+    renderMatriz();
+    renderRecargos();
+    renderBarriosTodo();
+  }
+
+  // ── Zonas ──
+  function tipoLabel(tipo) {
+    if (tipo === 'no_disponible') return '<span class="badge roja">No disponible</span>';
+    if (tipo === 'destino_solo') return '<span class="badge mostaza">Solo destino</span>';
+    return '<span class="badge ok">Urbana</span>';
+  }
+
+  function renderZonas() {
+    const tbody = $('tbody-zonas');
+    tbody.innerHTML = '';
+    if (!zonas.length) {
+      tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:var(--cafe-suave);padding:20px;">Sin zonas registradas</td></tr>';
+      return;
+    }
+    for (const z of zonas) {
+      const tr = document.createElement('tr');
+      const nBarrios = barrios.filter(b => b.zona_id === z.id).length;
+      if (zonaEnEdicion === z.id) {
+        tr.innerHTML = `
+          <td><input type="text" id="edit-zona-nombre" value="${esc(z.nombre)}" /></td>
+          <td>
+            <select id="edit-zona-tipo" style="min-width:130px;">
+              <option value="urbana" ${z.tipo === 'urbana' ? 'selected' : ''}>Urbana</option>
+              <option value="destino_solo" ${z.tipo === 'destino_solo' ? 'selected' : ''}>Solo destino</option>
+              <option value="no_disponible" ${z.tipo === 'no_disponible' ? 'selected' : ''}>No disponible</option>
+            </select>
+          </td>
+          <td style="text-align:center;">${nBarrios}</td>
+          <td style="white-space:nowrap;">
+            <input type="text" id="edit-zona-desc" value="${esc(z.descripcion || '')}" placeholder="Descripción" style="margin-bottom:6px;" />
+            <button class="btn-secundario" id="confirmar-zona" style="padding:6px 12px;font-size:12px;">Guardar</button>
+            <button class="btn-plano" id="cancelar-zona" style="padding:6px 12px;font-size:12px;">Cancelar</button>
+          </td>`;
+        tr.querySelector('#confirmar-zona').addEventListener('click', () => guardarZonaEditada(z.id));
+        tr.querySelector('#cancelar-zona').addEventListener('click', () => { zonaEnEdicion = null; renderZonas(); });
+        tbody.appendChild(tr);
+        continue;
+      }
+      tr.innerHTML = `
+        <td style="font-weight:700;">${esc(z.nombre)}${z.id === ZONA_ROJA_ID ? ' <span class="badge roja">No disponible</span>' : ''}</td>
+        <td>${tipoLabel(z.tipo)}</td>
+        <td style="text-align:center;">${nBarrios}</td>
+        <td style="white-space:nowrap;">
+          ${z.id === ZONA_ROJA_ID ? '' : `<button class="btn-plano" data-editar="${z.id}" ${soyAdmin ? '' : 'disabled'} style="padding:6px 12px;font-size:12px;">Editar</button>`}
+          <button class="btn-borrar" data-borrar="${z.id}" ${soyAdmin ? '' : 'disabled'} title="Eliminar">✕</button>
+        </td>`;
+      tr.querySelector('[data-editar]')?.addEventListener('click', () => { zonaEnEdicion = z.id; renderZonas(); });
+      tr.querySelector('[data-borrar]').addEventListener('click', () => borrarZona(z));
+      tbody.appendChild(tr);
+    }
+  }
+
+  function esc(s) {
+    return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+
+  async function crearZona() {
+    if (!soyAdmin) return;
+    const nombre = $('zona-nombre').value.trim();
+    const tipo = $('zona-tipo').value;
+    const descripcion = $('zona-descripcion').value.trim();
+    if (!nombre) {
+      fijarEstado('error', 'Escribe el nombre de la zona.', 'mensaje-zonas');
+      return;
+    }
+    const id = nombre.toLowerCase()
+      .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '').slice(0, 60);
+    if (!id) {
+      fijarEstado('error', 'El nombre debe incluir letras para generar el id.', 'mensaje-zonas');
+      return;
+    }
+    if (zonas.some(z => z.id === id)) {
+      fijarEstado('error', `Ya existe una zona con el id "${id}". Usa otro nombre o edita la existente.`, 'mensaje-zonas');
+      return;
+    }
+    try {
+      const { error } = await cliente.from('zonas').insert({ id, nombre, tipo, descripcion });
+      if (error) throw error;
+      $('zona-nombre').value = '';
+      $('zona-descripcion').value = '';
+      await cargarDatos();
+      fijarEstado('ok', `Zona "${nombre}" creada. Ahora define sus tarifas en la pestaña Tarifas.`, 'mensaje-zonas');
+    } catch (err) {
+      if (/row-level security/.test(err.message || '') || /permission/.test(err.message || '')) {
+        fijarEstado('error', 'Sin permisos de administrador. Revisa que tu usuario esté en la tabla `admins`.', 'mensaje-zonas');
+      } else {
+        fijarEstado('error', 'No se pudo crear la zona: ' + (err.message || err), 'mensaje-zonas');
+      }
+    }
+  }
+
+  async function guardarZonaEditada(id) {
+    if (!soyAdmin) return;
+    const nombre = $('edit-zona-nombre').value.trim();
+    const tipo = $('edit-zona-tipo').value;
+    const descripcion = $('edit-zona-desc').value.trim();
+    if (!nombre) {
+      fijarEstado('error', 'El nombre no puede quedar vacío.', 'mensaje-zonas');
+      return;
+    }
+    try {
+      const { error } = await cliente.from('zonas').update({ nombre, tipo, descripcion }).eq('id', id);
+      if (error) throw error;
+      zonaEnEdicion = null;
+      await cargarDatos();
+      fijarEstado('ok', 'Zona actualizada.', 'mensaje-zonas');
+    } catch (err) {
+      fijarEstado('error', 'No se pudo actualizar: ' + (err.message || err), 'mensaje-zonas');
+    }
+  }
+
+  async function borrarZona(z) {
+    if (!soyAdmin) return;
+    const n = barrios.filter(b => b.zona_id === z.id).length;
+    if (n > 0) {
+      fijarEstado('error', `No se puede eliminar "${z.nombre}": tiene ${n} barrios asignados. Reasínalos primero.`, 'mensaje-zonas');
+      return;
+    }
+    if (!confirm(`¿Eliminar la zona "${z.nombre}"? También se borrarán sus tarifas.`)) return;
+    try {
+      const { error } = await cliente.from('zonas').delete().eq('id', z.id);
+      if (error) throw error;
+      await cargarDatos();
+      fijarEstado('ok', `Zona "${z.nombre}" eliminada.`, 'mensaje-zonas');
+    } catch (err) {
+      fijarEstado('error', 'No se pudo eliminar: ' + (err.message || err), 'mensaje-zonas');
+    }
+  }
+
+  // ── Matriz de tarifas ──
+  function zonasMatriz() {
+    return zonas.filter(z => z.id !== ZONA_ROJA_ID && z.tipo !== 'no_disponible');
+  }
+
+  function renderMatriz() {
+    const tabla = $('matriz-tarifas');
+    const lista = zonasMatriz();
+    if (!lista.length) {
+      tabla.innerHTML = '<caption style="padding:20px;color:var(--cafe-suave);">Sin zonas para mostrar</caption>';
+      return;
+    }
+    let html = '<thead><tr><th class="esquina">Origen ↓ / Destino →</th>';
+    for (const z of lista) html += `<th title="${esc(z.nombre)}">${esc(abreviarZona(z))}</th>`;
+    html += '</tr></thead><tbody>';
+    for (const o of lista) {
+      html += `<tr><th title="${esc(o.nombre)}">${esc(o.nombre)}</th>`;
+      for (const d of lista) {
+        const clave = o.id + '|' + d.id;
+        let valor;
+        if (cambiosTarifas.has(clave)) valor = cambiosTarifas.get(clave);
+        else if (borradosTarifas.has(clave)) valor = '';
+        else valor = tarifas[clave] ?? '';
+        const diag = o.id === d.id ? 'diagonal' : '';
+        html += `<td class="${diag}"><input type="number" min="0" step="100" data-clave="${clave}"
+          ${soyAdmin ? '' : 'disabled'} value="${valor === '' ? '' : valor}" placeholder="—" /></td>`;
+      }
+      html += '</tr>';
+    }
+    html += '</tbody>';
+    tabla.innerHTML = html;
+    tabla.querySelectorAll('input').forEach(inp => {
+      inp.addEventListener('input', () => {
+        if (!soyAdmin) return;
+        const clave = inp.dataset.clave;
+        const v = inp.value.trim();
+        borradosTarifas.delete(clave);
+        if (v === '') {
+          cambiosTarifas.delete(clave);
+          if (tarifas[clave] !== undefined) borradosTarifas.add(clave); // vaciar = eliminar
+        } else {
+          cambiosTarifas.set(clave, Math.max(0, Math.round(Number(v) || 0)));
+        }
+        actualizarBarraTarifas();
+      });
+      inp.addEventListener('change', () => {
+        // Normaliza el valor al salir del campo
+        const clave = inp.dataset.clave;
+        if (cambiosTarifas.has(clave)) {
+          inp.value = cambiosTarifas.get(clave);
+          inp.classList.add('sucio');
+        } else {
+          inp.classList.remove('sucio');
+        }
+      });
+    });
+    actualizarBarraTarifas();
+  }
+
+  function abreviarZona(z) {
+    // Nombres cortos para las cabeceras de la matriz
+    const map = {
+      'centro': 'Centro',
+      'norte_1_18': 'N 1-18',
+      'norte_19_37': 'N 19-37',
+      'norte_38_50': 'N 38-50',
+      'sur_27_50': 'S 27-50',
+      'sur_despues_naranjos': 'S +Naranjos',
+      'sur_despues_puerto_espejo': 'S +Pto Espejo',
+      'villa_inglesa': 'V. Inglesa',
+      'cano_cristales': 'Caño Crist.',
+      'setta_departamental': 'Setta Dept.'
+    };
+    return map[z.id] || z.nombre.split(' ')[0];
+  }
+
+  function actualizarBarraTarifas() {
+    const n = cambiosTarifas.size + borradosTarifas.size;
+    const btn = $('btn-guardar-tarifas');
+    const btnD = $('btn-descartar-tarifas');
+    btn.disabled = !soyAdmin || n === 0;
+    btnD.disabled = !soyAdmin || n === 0;
+    $('idx-cambios').textContent = n ? `${n} cambio(s) pendiente(s)` : 'Sin cambios pendientes';
+    $('matriz-tarifas').querySelectorAll('input').forEach(inp => {
+      inp.classList.toggle('sucio', cambiosTarifas.has(inp.dataset.clave) || borradosTarifas.has(inp.dataset.clave));
+    });
+  }
+
+  async function guardarTarifas() {
+    if (!soyAdmin) return;
+    const nTotal = cambiosTarifas.size + borradosTarifas.size;
+    if (!nTotal) return;
+    const filas = [];
+    for (const [clave, valor] of cambiosTarifas) {
+      const [o, d] = clave.split('|');
+      filas.push({ zona_origen_id: o, zona_destino_id: d, valor });
+    }
+    $('btn-guardar-tarifas').disabled = true;
+    try {
+      if (filas.length) {
+        const { error } = await cliente.from('tarifas').upsert(filas, {
+          onConflict: 'zona_origen_id,zona_destino_id'
+        });
+        if (error) throw error;
+      }
+      for (const clave of borradosTarifas) {
+        const [o, d] = clave.split('|');
+        const { error } = await cliente.from('tarifas')
+          .delete().eq('zona_origen_id', o).eq('zona_destino_id', d);
+        if (error) throw error;
+      }
+      for (const f of filas) tarifas[f.zona_origen_id + '|' + f.zona_destino_id] = f.valor;
+      for (const clave of borradosTarifas) delete tarifas[clave];
+      cambiosTarifas.clear();
+      borradosTarifas.clear();
+      actualizarBarraTarifas();
+      renderTodo();
+      fijarEstado('ok', `Se guardaron ${nTotal} cambio(s) en las tarifas.`, 'mensaje-tarifas');
+    } catch (err) {
+      fijarEstado('error', 'No se pudieron guardar las tarifas: ' + (err.message || err), 'mensaje-tarifas');
+      actualizarBarraTarifas();
+    }
+  }
+
+  function descartarTarifas() {
+    cambiosTarifas.clear();
+    borradosTarifas.clear();
+    renderMatriz();
+    fijarEstado('', '', 'mensaje-tarifas');
+  }
+
+  // ── Recargos ──
+  function renderRecargos() {
+    const tbody = $('tbody-recargos');
+    tbody.innerHTML = '';
+    if (!recargos.length) {
+      tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--cafe-suave);padding:20px;">Sin recargos registrados</td></tr>';
+      return;
+    }
+    for (const r of recargos) {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td style="font-weight:600;">${esc(r.codigo)}</td>
+        <td>${esc(r.nombre)}</td>
+        <td>${esc(r.tipo)}</td>
+        <td><input type="number" min="0" step="100" data-codigo="${esc(r.codigo)}" value="${r.valor ?? ''}" style="width:110px;" ${soyAdmin ? '' : 'disabled'} /></td>
+        <td style="text-align:right;white-space:nowrap;">
+          <button class="btn-plano" data-guardar="${esc(r.codigo)}" ${soyAdmin ? '' : 'disabled'} style="padding:6px 12px;font-size:12px;">Guardar</button>
+          <button class="btn-borrar" data-borrar="${esc(r.codigo)}" ${soyAdmin ? '' : 'disabled'} title="Eliminar">✕</button>
+        </td>`;
+      tr.querySelector('[data-guardar]').addEventListener('click', (e) =>
+        guardarRecargo(r.codigo, e.target.closest('tr').querySelector('input').value));
+      tr.querySelector('[data-borrar]').addEventListener('click', () => borrarRecargo(r));
+      tbody.appendChild(tr);
+    }
+  }
+
+  async function guardarRecargo(codigo, valorRaw) {
+    if (!soyAdmin) return;
+    const valor = Math.max(0, Math.round(Number(valorRaw) || 0));
+    try {
+      const { error } = await cliente.from('recargos').update({ valor }).eq('codigo', codigo);
+      if (error) throw error;
+      const r = recargos.find(x => x.codigo === codigo);
+      if (r) r.valor = valor;
+      renderRecargos();
+      fijarEstado('ok', `Recargo "${codigo}" actualizado a ${cop(valor)}.`, 'mensaje-recargos');
+    } catch (err) {
+      fijarEstado('error', 'No se pudo actualizar: ' + (err.message || err), 'mensaje-recargos');
+    }
+  }
+
+  async function crearRecargo() {
+    if (!soyAdmin) return;
+    const codigo = $('rec-codigo').value.trim();
+    const nombre = $('rec-nombre').value.trim();
+    const tipo = $('rec-tipo').value.trim();
+    const valor = Math.max(0, Math.round(Number($('rec-valor').value) || 0));
+    if (!codigo || !nombre) {
+      fijarEstado('error', 'El código y el nombre son obligatorios.', 'mensaje-recargos');
+      return;
+    }
+    try {
+      const { error } = await cliente.from('recargos').insert({ codigo, nombre, tipo, valor });
+      if (error) throw error;
+      $('rec-codigo').value = $('rec-nombre').value = $('rec-tipo').value = $('rec-valor').value = '';
+      await cargarDatos();
+      fijarEstado('ok', `Recargo "${nombre}" agregado.`, 'mensaje-recargos');
+    } catch (err) {
+      fijarEstado('error', 'No se pudo agregar: ' + (err.message || err), 'mensaje-recargos');
+    }
+  }
+
+  async function borrarRecargo(r) {
+    if (!soyAdmin) return;
+    if (!confirm(`¿Eliminar el recargo "${r.nombre}"?`)) return;
+    try {
+      const { error } = await cliente.from('recargos').delete().eq('codigo', r.codigo);
+      if (error) throw error;
+      await cargarDatos();
+      fijarEstado('ok', `Recargo "${r.nombre}" eliminado.`, 'mensaje-recargos');
+    } catch (err) {
+      fijarEstado('error', 'No se pudo eliminar: ' + (err.message || err), 'mensaje-recargos');
+    }
+  }
+
+  // ── Barrios ──
+  function nombreZona(id) {
+    if (id === ZONA_ROJA_ID) return 'Zona Roja (No disponible)';
+    const z = zonas.find(x => x.id === id);
+    return z ? z.nombre : 'Sin zona';
+  }
+
+  function renderBarriosTodo() {
+    const revisados = barrios.filter(b => b.revisado).length;
+    $('txt-progreso').textContent = `${revisados} de ${barrios.length} revisados`;
+    const pct = barrios.length ? Math.round((revisados / barrios.length) * 100) : 0;
+    $('barra-progreso').style.width = pct + '%';
+    renderWizard();
+    renderLista();
+    llenarSelectNuevo();
+    actualizarBotonDeshacer();
+  }
+
+  function barrioActual() { return barrios[indiceActual]; }
+
+  function renderWizard() {
+    const b = barrioActual();
+    if (!b) {
+      $('barrio-nombre').textContent = 'No hay barrios registrados';
+      $('chip-zona').textContent = 'Usa "Sincronizar barrios.json" o agrégalos en la lista';
+      $('chip-zona').className = 'chip';
+      $('opciones-zona').innerHTML = '';
+      $('idx-barrio').textContent = 'Barrio 0 de 0';
+      $('btn-guardar').disabled = true;
+      return;
+    }
+    $('idx-barrio').textContent = `Barrio ${indiceActual + 1} de ${barrios.length}`;
+    $('barrio-nombre').textContent = b.nombre;
+    const chip = $('chip-zona');
+    chip.textContent = 'Zona actual: ' + nombreZona(b.zona_id);
+    chip.className = 'chip' + (b.zona_id === ZONA_ROJA_ID ? ' roja' : '');
+
+    const cont = $('opciones-zona');
+    cont.innerHTML = '';
+    const opciones = zonas.map(z => ({ id: z.id, nombre: z.nombre }));
+    if (!opciones.some(o => o.id === ZONA_ROJA_ID)) {
+      opciones.push({ id: ZONA_ROJA_ID, nombre: 'No disponible — Zona Roja' });
+    }
+    for (const op of opciones) {
+      const label = document.createElement('label');
+      if (op.id === ZONA_ROJA_ID) label.classList.add('roja');
+      if (op.id === b.zona_id) label.classList.add('sel');
+      label.innerHTML = `<input type="radio" name="zona" value="${op.id}" ${op.id === b.zona_id ? 'checked' : ''} />
+        <span class="marca-radio"></span>
+        <span>${esc(op.nombre)}</span>`;
+      label.querySelector('input').addEventListener('change', () => {
+        cont.querySelectorAll('label').forEach(l => l.classList.remove('sel'));
+        label.classList.add('sel');
+      });
+      cont.appendChild(label);
+    }
+  }
+
+  function renderLista() {
+    const q = filtroLista.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    const visibles = barrios.filter(b =>
+      !q || b.nombre.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').includes(q)
+    );
+    $('idx-lista').textContent = `${visibles.length} barrios`;
+    const tbody = $('tbody-barrios');
+    tbody.innerHTML = '';
+    if (!visibles.length) {
+      tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:var(--cafe-suave);padding:20px;">Sin resultados</td></tr>';
+      return;
+    }
+    for (const b of visibles) {
+      const tr = document.createElement('tr');
+      const estado = b.zona_id === ZONA_ROJA_ID
+        ? '<span class="badge roja">Zona roja</span>'
+        : (b.revisado ? '<span class="badge ok">Revisado</span>' : '<span class="badge pend">Pendiente</span>');
+      const opciones = zonas.map(z =>
+        `<option value="${z.id}" ${z.id === b.zona_id ? 'selected' : ''}>${esc(z.nombre)}</option>`
+      ).join('');
+      tr.innerHTML = `
+        <td style="font-weight:600;">${esc(b.nombre)}</td>
+        <td><select data-id="${b.id}" ${soyAdmin ? '' : 'disabled'}>${opciones}
+          <option value="${ZONA_ROJA_ID}" ${b.zona_id === ZONA_ROJA_ID ? 'selected' : ''}>🚫 No disponible — Zona Roja</option>
+        </select></td>
+        <td>${estado}</td>
+        <td><button class="btn-borrar" data-id="${b.id}" ${soyAdmin ? '' : 'disabled'} title="Eliminar">✕</button></td>`;
+      tr.querySelector('select').addEventListener('change', async (e) => {
+        const ok = await guardarZona(b.id, e.target.value, b, 'mensaje-lista');
+        if (ok) {
+          fijarEstado('ok', `Zona actualizada: ${b.nombre} → ${nombreZona(e.target.value)}`, 'mensaje-lista');
+          renderBarriosTodo();
+        }
+      });
+      tr.querySelector('.btn-borrar').addEventListener('click', () => eliminarBarrio(b));
+      tbody.appendChild(tr);
+    }
+  }
+
+  function llenarSelectNuevo() {
+    const sel = $('nuevo-zona');
+    sel.innerHTML = zonas.map(z => `<option value="${z.id}">${esc(z.nombre)}</option>`).join('');
+  }
+
+  async function actualizarBarrio(id, zonaId, revisado) {
+    let { error } = await cliente.from('barrios')
+      .update({ zona_id: zonaId, revisado })
+      .eq('id', id);
+    if (error && /revisado/.test(error.message || '')) {
+      ({ error } = await cliente.from('barrios').update({ zona_id: zonaId }).eq('id', id));
+    }
+    return error;
+  }
+
+  async function guardarZona(id, zonaId, barrioLocal, msgId) {
+    if (!soyAdmin) return false;
+    const error = await actualizarBarrio(id, zonaId, true);
+    if (error) {
+      fijarEstado('error', 'Error al guardar: ' + (error.message || error), msgId || 'mensaje-guardar');
+      return false;
+    }
+    if (barrioLocal) {
+      if (barrioLocal.zona_id !== zonaId) {
+        historial.push({
+          id: barrioLocal.id,
+          nombre: barrioLocal.nombre,
+          zonaAnterior: barrioLocal.zona_id,
+          revisadoAnterior: !!barrioLocal.revisado
+        });
+        if (historial.length > 50) historial.shift();
+      }
+      barrioLocal.zona_id = zonaId;
+      barrioLocal.revisado = true;
+    }
+    actualizarBotonDeshacer();
+    return true;
+  }
+
+  function actualizarBotonDeshacer() {
+    const btn = $('btn-deshacer');
+    if (!btn) return;
+    const ultimo = historial[historial.length - 1];
+    btn.disabled = !ultimo;
+    btn.textContent = ultimo ? `↩ Deshacer: ${ultimo.nombre}` : '↩ Deshacer';
+    btn.title = ultimo ? `Revoca el cambio a "${nombreZona(barrios.find(b => b.id === ultimo.id)?.zona_id)}" en ${ultimo.nombre}` : 'Revoca el último cambio de zona';
+  }
+
+  async function deshacer() {
+    if (!soyAdmin) return;
+    if (!historial.length) {
+      fijarEstado('ok', 'No hay cambios que deshacer.', 'mensaje-lista');
+      return;
+    }
+    const cambio = historial[historial.length - 1];
+    const b = barrios.find(x => x.id === cambio.id);
+    if (!b) {
+      historial.pop();
+      fijarEstado('ok', 'No se pudo deshacer: el barrio fue eliminado.', 'mensaje-lista');
+      actualizarBotonDeshacer();
+      renderBarriosTodo();
+      return;
+    }
+    const error = await actualizarBarrio(b.id, cambio.zonaAnterior, cambio.revisadoAnterior);
+    if (error) {
+      fijarEstado('error', 'No se pudo deshacer: ' + (error.message || error), 'mensaje-lista');
+      actualizarBotonDeshacer();
+      return;
+    }
+    historial.pop();
+    b.zona_id = cambio.zonaAnterior;
+    b.revisado = cambio.revisadoAnterior;
+    fijarEstado('ok', `Deshecho: ${cambio.nombre} volvió a ${nombreZona(cambio.zonaAnterior)}.`, 'mensaje-lista');
+    actualizarBotonDeshacer();
+    renderBarriosTodo();
+  }
+
+  async function guardarYSiguiente() {
+    const b = barrioActual();
+    if (!b) return;
+    const sel = document.querySelector('input[name="zona"]:checked');
+    if (!sel) {
+      fijarEstado('error', 'Selecciona una zona para este barrio.', 'mensaje-guardar');
+      return;
+    }
+    $('btn-guardar').disabled = true;
+    const ok = await guardarZona(b.id, sel.value, b, 'mensaje-guardar');
+    $('btn-guardar').disabled = !soyAdmin;
+    if (!ok) return;
+    fijarEstado('ok', `Guardado: ${b.nombre} → ${nombreZona(sel.value)}`, 'mensaje-guardar');
+    avanzar();
+    renderBarriosTodo();
+  }
+
+  function avanzar() {
+    const n = barrios.length;
+    for (let i = 1; i <= n; i++) {
+      const idx = (indiceActual + i) % n;
+      if (!barrios[idx].revisado) { indiceActual = idx; return; }
+    }
+    indiceActual = (indiceActual + 1) % n;
+  }
+
+  function anterior() {
+    if (!barrios.length) return;
+    indiceActual = (indiceActual - 1 + barrios.length) % barrios.length;
+    renderWizard();
+  }
+
+  function saltar() {
+    if (!barrios.length) return;
+    indiceActual = (indiceActual + 1) % barrios.length;
+    renderWizard();
+  }
+
+  function buscarYSaltar(q) {
+    if (!q || !barrios.length) return;
+    const clave = q.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    const idx = barrios.findIndex(b =>
+      b.nombre.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').includes(clave)
+    );
+    if (idx !== -1) { indiceActual = idx; renderWizard(); }
+  }
+
+  async function eliminarBarrio(b) {
+    if (!soyAdmin) return;
+    if (!confirm(`¿Eliminar el barrio "${b.nombre}"? Esta acción no se puede deshacer.`)) return;
+    try {
+      const { error } = await cliente.from('barrios').delete().eq('id', b.id);
+      if (error) throw error;
+      barrios = barrios.filter(x => x.id !== b.id);
+      if (indiceActual >= barrios.length) indiceActual = Math.max(0, barrios.length - 1);
+      renderBarriosTodo();
+    } catch (err) {
+      fijarEstado('error', 'No se pudo eliminar: ' + (err.message || err), 'mensaje-lista');
+    }
+  }
+
+  async function agregarBarrio() {
+    if (!soyAdmin) return;
+    const nombre = $('nuevo-nombre').value.trim();
+    if (!nombre) {
+      fijarEstado('error', 'Escribe el nombre del barrio.', 'mensaje-lista');
+      return;
+    }
+    const zonaId = $('nuevo-zona').value;
+    try {
+      const { error } = await cliente.from('barrios').insert({ nombre, zona_id: zonaId });
+      if (error) throw error;
+      $('nuevo-nombre').value = '';
+      await cargarDatos();
+      fijarEstado('ok', `Barrio "${nombre}" agregado.`, 'mensaje-lista');
+    } catch (err) {
+      fijarEstado('error', 'No se pudo agregar: ' + (err.message || err), 'mensaje-lista');
+    }
+  }
+
+  async function sincronizar() {
+    if (!soyAdmin) return;
+    const msg = $('mensaje-sync');
+    msg.textContent = '';
+    msg.className = 'mensaje';
+    try {
+      const resp = await fetch('barrios.json');
+      if (!resp.ok) throw new Error('No se pudo leer barrios.json');
+      const datos = await resp.json();
+      const nombresExistentes = new Set(barrios.map(b => b.nombre.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')));
+      const porInsertar = [];
+      let desconocidas = 0;
+      for (const zona of datos.zonas || []) {
+        const zonaId = MAPA_JSON_ZONA[zona.zona];
+        if (!zonaId) { desconocidas++; continue; }
+        for (const nombre of zona.barrios || []) {
+          const clave = nombre.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+          if (!nombresExistentes.has(clave)) {
+            porInsertar.push({ nombre, zona_id: zonaId });
+            nombresExistentes.add(clave);
+          }
+        }
+      }
+      if (porInsertar.length) {
+        for (let i = 0; i < porInsertar.length; i += 100) {
+          const lote = porInsertar.slice(i, i + 100);
+          const { error } = await cliente.from('barrios').upsert(lote, { onConflict: 'nombre' });
+          if (error) throw error;
+        }
+      }
+      await cargarDatos();
+      msg.className = 'mensaje ok';
+      msg.textContent = `Sincronizado: se agregaron ${porInsertar.length} barrios nuevos.${desconocidas ? ` (${desconocidas} zonas del JSON sin mapear)` : ''}`;
+    } catch (err) {
+      msg.className = 'mensaje error';
+      msg.textContent = 'Error al sincronizar: ' + (err.message || err);
+    }
+  }
+
+  // ── Tabs ──
+  function activarTab(nombre) {
+    const tabs = { zonas: 'tab-zonas', tarifas: 'tab-tarifas', barrios: 'tab-barrios', recargos: 'tab-recargos' };
+    const paneles = { zonas: 'panel-zonas', tarifas: 'panel-tarifas', barrios: 'panel-barrios', recargos: 'panel-recargos' };
+    for (const t in tabs) {
+      $(tabs[t]).classList.toggle('activa', t === nombre);
+      $(paneles[t]).classList.toggle('oculto', t !== nombre);
+    }
+  }
+
+  // ── Eventos ──
+  $('btn-ingresar').addEventListener('click', ingresar);
+  $('input-pass').addEventListener('keydown', (e) => { if (e.key === 'Enter') ingresar(); });
+  $('btn-salir').addEventListener('click', salir);
+  $('btn-agregar-zona').addEventListener('click', crearZona);
+  $('zona-nombre').addEventListener('keydown', (e) => { if (e.key === 'Enter') crearZona(); });
+  $('btn-guardar-tarifas').addEventListener('click', guardarTarifas);
+  $('btn-descartar-tarifas').addEventListener('click', descartarTarifas);
+  $('btn-agregar-recargo').addEventListener('click', crearRecargo);
+  $('rec-valor').addEventListener('keydown', (e) => { if (e.key === 'Enter') crearRecargo(); });
+  $('btn-agregar').addEventListener('click', agregarBarrio);
+  $('btn-guardar').addEventListener('click', guardarYSiguiente);
+  $('btn-anterior').addEventListener('click', anterior);
+  $('btn-saltar').addEventListener('click', saltar);
+  $('btn-sincronizar').addEventListener('click', sincronizar);
+  $('btn-deshacer').addEventListener('click', deshacer);
+  $('buscar-barrio').addEventListener('input', (e) => buscarYSaltar(e.target.value));
+  $('buscar-lista').addEventListener('input', (e) => { filtroLista = e.target.value; renderLista(); });
+  $('nuevo-nombre').addEventListener('keydown', (e) => { if (e.key === 'Enter') agregarBarrio(); });
+  $('tab-zonas').addEventListener('click', () => activarTab('zonas'));
+  $('tab-tarifas').addEventListener('click', () => activarTab('tarifas'));
+  $('tab-barrios').addEventListener('click', () => activarTab('barrios'));
+  $('tab-recargos').addEventListener('click', () => activarTab('recargos'));
+  $('tab-wizard').addEventListener('click', () => {
+    $('tab-wizard').classList.add('activa');
+    $('tab-lista').classList.remove('activa');
+    $('sub-wizard').classList.remove('oculto');
+    $('sub-lista').classList.add('oculto');
+  });
+  $('tab-lista').addEventListener('click', () => {
+    $('tab-lista').classList.add('activa');
+    $('tab-wizard').classList.remove('activa');
+    $('sub-lista').classList.remove('oculto');
+    $('sub-wizard').classList.add('oculto');
+  });
+
+  // ── Inicio ──
+  (async function init() {
+    const ok = await autoConectar();
+    if (!ok) return;
+    try {
+      await conectar($('input-url').value.trim(), $('input-key').value.trim());
+    } catch (err) {
+      console.warn('Error de conexión:', err.message);
+      fijarEstado('error', 'No se pudo conectar: ' + (err.message || err), 'mensaje-login', 'punto-conexion');
+    }
+  })();
+</script>
+</body>
+</html>
