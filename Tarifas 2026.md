@@ -2,7 +2,7 @@
 
 ## **_ARMENIA_** 
 
-**TARIFAS** **_A  LA MANO MENSAJERIA_** 
+**TARIFAS** **_STARGO_** 
 
 # **_Zona Urbana_** 
 

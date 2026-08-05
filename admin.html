@@ -3,11 +3,11 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>A la Mano Mensajería — Panel de Administración</title>
+<title>StarGo — Panel de Administración</title>
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;700;900&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
-<script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+
 <style>
   :root {
     --crema: #f2ead9;
@@ -192,7 +192,7 @@
 
   <header class="marca">
     <div class="lockup">
-      <span class="eyebrow">A la Mano Mensajería</span>
+      <span class="eyebrow">StarGo</span>
       <h1>Panel de Administración</h1>
     </div>
     <span class="ciudad-anio">Armenia · 2026</span>
@@ -201,16 +201,6 @@
   <!-- ── Inicio de sesión ── -->
   <section class="tarjeta" id="tarjeta-login">
     <h2><span id="punto-conexion" class="punto-estado"></span>Inicio de sesión</h2>
-    <div class="fila">
-      <div class="campo">
-        <label for="input-url">Project URL</label>
-        <input type="text" id="input-url" placeholder="https://xxxxx.supabase.co" />
-      </div>
-      <div class="campo">
-        <label for="input-key">Anon public key</label>
-        <input type="password" id="input-key" placeholder="eyJhbGciOi..." />
-      </div>
-    </div>
     <div class="fila">
       <div class="campo">
         <label for="input-email">Correo del administrador</label>
@@ -407,10 +397,10 @@
   </div>
 
 </div>
+<script src="stargo.js"></script>
 <script>
-  let cliente = null;
-  let sesion = null;
   let soyAdmin = false;
+  let emailUsuario = '';
   let zonas = [];
   let tarifas = {};               // "origen|destino" -> valor
   let recargos = [];
@@ -420,7 +410,6 @@
   let historial = [];             // cambios de zona recientes (deshacer)
   let cambiosTarifas = new Map(); // "origen|destino" -> valor pendiente
   let borradosTarifas = new Set(); // claves de tarifas marcadas para eliminar
-  let verificacionRol = 'ok';      // 'ok' | 'no_admin' | 'sin_funcion'
   let zonaEnEdicion = null;       // zona en modo edición (id)
 
   const ZONA_ROJA_ID = 'zona_roja';
@@ -456,77 +445,34 @@
     if (punto) punto.className = 'punto-estado' + (estado === 'ok' ? ' ok' : estado === 'error' ? ' error' : '');
   }
 
-  // ── Conexión + sesión ──
-  async function autoConectar() {
-    try {
-      const resp = await fetch('/api/config');
-      if (!resp.ok) throw new Error('HTTP ' + resp.status);
-      const { url, key, error } = await resp.json();
-      if (error) throw new Error(error);
-      if (!url || !key) throw new Error('Credenciales vacías');
-      $('input-url').value = url;
-      $('input-key').value = key;
-      return true;
-    } catch (err) {
-      console.warn('Auto-conexión no disponible:', err.message);
-      fijarEstado('', 'Ingresa las credenciales manualmente (o configúralas en Vercel).', 'mensaje-login', 'punto-conexion');
-      return false;
-    }
-  }
-
-  async function conectar(url, key) {
-    cliente = supabase.createClient(url, key);
-    const { data, error } = await cliente.auth.getSession();
-    if (error) throw error;
-    if (data.session) {
-      sesion = data.session;
-      await cargarDatos();
-      mostrarPanel();
-    } else {
-      fijarEstado('', 'Conectado. Ingresa con tu correo de administrador.', 'mensaje-login', 'punto-conexion');
-    }
-  }
-
+  // ── Sesión (todo pasa por la API de StarGo; el navegador no ve claves) ──
   async function ingresar() {
-    const url = $('input-url').value.trim();
-    const key = $('input-key').value.trim();
     const email = $('input-email').value.trim();
     const pass = $('input-pass').value;
-    if (!url || !key) {
-      fijarEstado('error', 'Ingresa la Project URL y la anon key.', 'mensaje-login', 'punto-conexion');
-      return;
-    }
     if (!email || !pass) {
       fijarEstado('error', 'Ingresa tu correo y contraseña.', 'mensaje-login', 'punto-conexion');
       return;
     }
+    $('btn-ingresar').disabled = true;
     try {
-      await conectar(url, key);
-      if (sesion) { $('input-pass').value = ''; return; }
-      const { data, error } = await cliente.auth.signInWithPassword({ email, password: pass });
+      const { data, error } = await api.login(email, pass);
       if (error) throw error;
-      sesion = data.session;
-      try {
-        await cargarDatos();
-      } catch (errData) {
-        console.error('Login OK pero falló la carga de datos:', errData);
-        const msj = /relation .* does not exist/.test(errData.message || '')
-          ? 'Sesión iniciada, pero faltan tablas en la base (¿migración pendiente?). Ejecuta migracion_admin_zonas_tarifas.sql en Supabase.'
-          : 'Sesión iniciada, pero no se pudieron cargar los datos: ' + (errData.message || errData);
-        fijarEstado('aviso', msj, 'mensaje-login', 'punto-conexion');
-        return;
-      }
-      mostrarPanel();
+      soyAdmin = true;
+      emailUsuario = data.email || email;
       $('input-pass').value = '';
+      await cargarDatos();
+      mostrarPanel();
     } catch (err) {
       fijarEstado('error', 'No se pudo iniciar sesión: ' + (err.message || err), 'mensaje-login', 'punto-conexion');
+    } finally {
+      $('btn-ingresar').disabled = false;
     }
   }
 
-  async function salir() {
-    await cliente.auth.signOut();
-    sesion = null;
+  function salir() {
+    api.salir();
     soyAdmin = false;
+    emailUsuario = '';
     $('panel-admin').classList.add('oculto');
     $('tarjeta-login').classList.remove('oculto');
     fijarEstado('ok', 'Sesión cerrada.', 'mensaje-login', 'punto-conexion');
@@ -535,17 +481,10 @@
   function mostrarPanel() {
     $('tarjeta-login').classList.add('oculto');
     $('panel-admin').classList.remove('oculto');
-    $('usuario-email').textContent = sesion.user?.email || '—';
-    $('badge-rol').textContent = soyAdmin ? 'Administrador' : 'Solo lectura';
-    $('badge-rol').className = 'badge ' + (soyAdmin ? 'admin' : 'lectura');
-    if (!soyAdmin) {
-      const msj = verificacionRol === 'sin_funcion'
-        ? 'No se pudo verificar tu rol: la función es_admin() no existe. Ejecuta la migración migracion_admin_zonas_tarifas.sql en Supabase y vuelve a iniciar sesión.'
-        : 'Tu usuario no figura en la tabla `admins`. Puedes ver los datos, pero NO podrás guardar cambios. Pídele al dueño del proyecto que te agregue.';
-      fijarEstado('aviso', msj, 'mensaje-sesion', 'punto-carga');
-    } else {
-      fijarEstado('ok', 'Sesión verificada. Tienes permisos de administrador.', 'mensaje-sesion', 'punto-carga');
-    }
+    $('usuario-email').textContent = emailUsuario || '—';
+    $('badge-rol').textContent = 'Administrador';
+    $('badge-rol').className = 'badge admin';
+    fijarEstado('ok', 'Sesión verificada. Tienes permisos de administrador.', 'mensaje-sesion', 'punto-carga');
   }
 
   // ── Carga de datos ──
@@ -554,10 +493,10 @@
            { data: t, error: et },
            { data: r, error: er },
            resBarrios] = await Promise.all([
-      cliente.from('zonas').select('id, nombre, tipo, descripcion'),
-      cliente.from('tarifas').select('zona_origen_id, zona_destino_id, valor'),
-      cliente.from('recargos').select('codigo, nombre, valor, tipo'),
-      cliente.from('barrios').select('id, nombre, zona_id, revisado')
+      api.from('zonas').select('id, nombre, tipo, descripcion'),
+      api.from('tarifas').select('zona_origen_id, zona_destino_id, valor'),
+      api.from('recargos').select('codigo, nombre, valor, tipo'),
+      api.from('barrios').select('id, nombre, zona_id, revisado')
     ]);
     if (ez) throw ez;
     if (et) throw et;
@@ -565,7 +504,7 @@
     let b = resBarrios.data;
     let eb = resBarrios.error;
     if (eb) {
-      const retry = await cliente.from('barrios').select('id, nombre, zona_id');
+      const retry = await api.from('barrios').select('id, nombre, zona_id');
       if (retry.error) throw retry.error;
       b = (retry.data || []).map(x => ({ ...x, revisado: false }));
     }
@@ -586,16 +525,9 @@
     borradosTarifas.clear();
     zonaEnEdicion = null;
 
-    // ¿Es admin? (función creada por la migración)
-    try {
-      const { data: ok } = await cliente.rpc('es_admin');
-      soyAdmin = !!ok;
-      verificacionRol = soyAdmin ? 'ok' : 'no_admin';
-    } catch (err) {
-      console.warn('No se pudo verificar rol admin (¿migración ejecutada?):', err.message);
-      soyAdmin = false;
-      verificacionRol = 'sin_funcion';
-    }
+    // El servidor (api/login y api/sesion) ya validó que este usuario
+    // figura en la tabla `admins`, así que tiene permisos de escritura.
+    soyAdmin = true;
 
     actualizarPestanasSegunPermisos();
     renderTodo();
@@ -700,14 +632,14 @@
       return;
     }
     try {
-      const { error } = await cliente.from('zonas').insert({ id, nombre, tipo, descripcion });
+      const { error } = await api.from('zonas').insert({ id, nombre, tipo, descripcion });
       if (error) throw error;
       $('zona-nombre').value = '';
       $('zona-descripcion').value = '';
       await cargarDatos();
       fijarEstado('ok', `Zona "${nombre}" creada. Ahora define sus tarifas en la pestaña Tarifas.`, 'mensaje-zonas');
     } catch (err) {
-      if (/row-level security/.test(err.message || '') || /permission/.test(err.message || '')) {
+      if (/row-level security|permission|permisos de administrador/i.test(err.message || '')) {
         fijarEstado('error', 'Sin permisos de administrador. Revisa que tu usuario esté en la tabla `admins`.', 'mensaje-zonas');
       } else {
         fijarEstado('error', 'No se pudo crear la zona: ' + (err.message || err), 'mensaje-zonas');
@@ -725,7 +657,7 @@
       return;
     }
     try {
-      const { error } = await cliente.from('zonas').update({ nombre, tipo, descripcion }).eq('id', id);
+      const { error } = await api.from('zonas').eq('id', id).update({ nombre, tipo, descripcion });
       if (error) throw error;
       zonaEnEdicion = null;
       await cargarDatos();
@@ -744,7 +676,7 @@
     }
     if (!confirm(`¿Eliminar la zona "${z.nombre}"? También se borrarán sus tarifas.`)) return;
     try {
-      const { error } = await cliente.from('zonas').delete().eq('id', z.id);
+      const { error } = await api.from('zonas').eq('id', z.id).delete();
       if (error) throw error;
       await cargarDatos();
       fijarEstado('ok', `Zona "${z.nombre}" eliminada.`, 'mensaje-zonas');
@@ -853,15 +785,15 @@
     $('btn-guardar-tarifas').disabled = true;
     try {
       if (filas.length) {
-        const { error } = await cliente.from('tarifas').upsert(filas, {
+        const { error } = await api.from('tarifas').upsert(filas, {
           onConflict: 'zona_origen_id,zona_destino_id'
         });
         if (error) throw error;
       }
       for (const clave of borradosTarifas) {
         const [o, d] = clave.split('|');
-        const { error } = await cliente.from('tarifas')
-          .delete().eq('zona_origen_id', o).eq('zona_destino_id', d);
+        const { error } = await api.from('tarifas')
+          .eq('zona_origen_id', o).eq('zona_destino_id', d).delete();
         if (error) throw error;
       }
       for (const f of filas) tarifas[f.zona_origen_id + '|' + f.zona_destino_id] = f.valor;
@@ -914,7 +846,7 @@
     if (!soyAdmin) return;
     const valor = Math.max(0, Math.round(Number(valorRaw) || 0));
     try {
-      const { error } = await cliente.from('recargos').update({ valor }).eq('codigo', codigo);
+      const { error } = await api.from('recargos').eq('codigo', codigo).update({ valor });
       if (error) throw error;
       const r = recargos.find(x => x.codigo === codigo);
       if (r) r.valor = valor;
@@ -936,7 +868,7 @@
       return;
     }
     try {
-      const { error } = await cliente.from('recargos').insert({ codigo, nombre, tipo, valor });
+      const { error } = await api.from('recargos').insert({ codigo, nombre, tipo, valor });
       if (error) throw error;
       $('rec-codigo').value = $('rec-nombre').value = $('rec-tipo').value = $('rec-valor').value = '';
       await cargarDatos();
@@ -950,7 +882,7 @@
     if (!soyAdmin) return;
     if (!confirm(`¿Eliminar el recargo "${r.nombre}"?`)) return;
     try {
-      const { error } = await cliente.from('recargos').delete().eq('codigo', r.codigo);
+      const { error } = await api.from('recargos').eq('codigo', r.codigo).delete();
       if (error) throw error;
       await cargarDatos();
       fijarEstado('ok', `Recargo "${r.nombre}" eliminado.`, 'mensaje-recargos');
@@ -1062,11 +994,11 @@
   }
 
   async function actualizarBarrio(id, zonaId, revisado) {
-    let { error } = await cliente.from('barrios')
-      .update({ zona_id: zonaId, revisado })
-      .eq('id', id);
+    let { error } = await api.from('barrios')
+      .eq('id', id)
+      .update({ zona_id: zonaId, revisado });
     if (error && /revisado/.test(error.message || '')) {
-      ({ error } = await cliente.from('barrios').update({ zona_id: zonaId }).eq('id', id));
+      ({ error } = await api.from('barrios').eq('id', id).update({ zona_id: zonaId }));
     }
     return error;
   }
@@ -1184,7 +1116,7 @@
     if (!soyAdmin) return;
     if (!confirm(`¿Eliminar el barrio "${b.nombre}"? Esta acción no se puede deshacer.`)) return;
     try {
-      const { error } = await cliente.from('barrios').delete().eq('id', b.id);
+      const { error } = await api.from('barrios').eq('id', b.id).delete();
       if (error) throw error;
       barrios = barrios.filter(x => x.id !== b.id);
       if (indiceActual >= barrios.length) indiceActual = Math.max(0, barrios.length - 1);
@@ -1203,7 +1135,7 @@
     }
     const zonaId = $('nuevo-zona').value;
     try {
-      const { error } = await cliente.from('barrios').insert({ nombre, zona_id: zonaId });
+      const { error } = await api.from('barrios').insert({ nombre, zona_id: zonaId });
       if (error) throw error;
       $('nuevo-nombre').value = '';
       await cargarDatos();
@@ -1239,7 +1171,7 @@
       if (porInsertar.length) {
         for (let i = 0; i < porInsertar.length; i += 100) {
           const lote = porInsertar.slice(i, i + 100);
-          const { error } = await cliente.from('barrios').upsert(lote, { onConflict: 'nombre' });
+          const { error } = await api.from('barrios').upsert(lote, { onConflict: 'nombre' });
           if (error) throw error;
         }
       }
@@ -1300,13 +1232,16 @@
 
   // ── Inicio ──
   (async function init() {
-    const ok = await autoConectar();
-    if (!ok) return;
     try {
-      await conectar($('input-url').value.trim(), $('input-key').value.trim());
+      const { data, error } = await api.sesion();
+      if (error) throw error;
+      soyAdmin = true;
+      emailUsuario = data.email || '—';
+      await cargarDatos();
+      mostrarPanel();
     } catch (err) {
-      console.warn('Error de conexión:', err.message);
-      fijarEstado('error', 'No se pudo conectar: ' + (err.message || err), 'mensaje-login', 'punto-conexion');
+      console.warn('Sin sesión activa:', err.message);
+      fijarEstado('', 'Ingresa con tu correo de administrador para acceder al panel.', 'mensaje-login', 'punto-conexion');
     }
   })();
 </script>

@@ -1,5 +1,5 @@
 -- =============================================================================
--- Migración complementaria: Panel de Barrios y Zonas (A la Mano Mensajería)
+-- Migración complementaria: Panel de Barrios y Zonas (StarGo)
 -- Ejecutar en el SQL Editor de Supabase DESPUÉS de la migración principal.
 -- Agrega:
 --   1. La zona "Zona Roja" (no disponible) en la tabla zonas

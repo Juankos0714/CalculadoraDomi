@@ -3,11 +3,10 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>A la Mano Mensajería — Calculadora de Tarifas</title>
+<title>StarGo — Calculadora de Tarifas</title>
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;700;900&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
-<script src="https://unpkg.com/@supabase/supabase-js@2"></script>
 <style>
   :root {
     --crema: #f2ead9;
@@ -298,27 +297,16 @@
 
     <header class="marca">
       <div class="lockup">
-        <span class="eyebrow">A la Mano Mensajería</span>
+        <span class="eyebrow">StarGo</span>
         <h1>Calculadora de Tarifas</h1>
       </div>
       <span class="ciudad-anio">Armenia · 2026</span>
     </header>
 
-    <!-- Conexión a Supabase -->
+    <!-- Estado de los datos (se cargan desde la API; no se piden credenciales) -->
     <section class="tarjeta">
-      <h2><span id="punto-conexion" class="punto-estado"></span>Conexión a Supabase</h2>
-      <div class="fila">
-        <div class="campo">
-          <label for="input-url">Project URL</label>
-          <input type="text" id="input-url" placeholder="https://xxxxx.supabase.co" />
-        </div>
-        <div class="campo">
-          <label for="input-key">Anon public key</label>
-          <input type="password" id="input-key" placeholder="eyJhbGciOi..." />
-        </div>
-      </div>
-      <button class="btn-secundario" id="btn-conectar">Conectar</button>
-      <div id="mensaje-conexion" class="mensaje"></div>
+      <h2><span id="punto-conexion" class="punto-estado"></span>Tarifas</h2>
+      <div id="mensaje-conexion" class="mensaje">Cargando datos…</div>
     </section>
 
     <!-- Calculadora -->
@@ -328,11 +316,11 @@
       <div class="fila">
         <div class="campo">
           <label for="select-origen">Barrio de origen</label>
-          <select id="select-origen" disabled><option>Conéctate primero</option></select>
+          <select id="select-origen" disabled><option>Cargando…</option></select>
         </div>
         <div class="campo">
           <label for="select-destino">Barrio de destino</label>
-          <select id="select-destino" disabled><option>Conéctate primero</option></select>
+          <select id="select-destino" disabled><option>Cargando…</option></select>
         </div>
       </div>
 
@@ -349,7 +337,7 @@
       <div style="margin-top:18px;">
         <label>Recargos aplicables</label>
         <div class="recargos-lista" id="lista-recargos">
-          <span style="font-size:13px;color:var(--cafe-suave);">Se cargan al conectar…</span>
+          <span style="font-size:13px;color:var(--cafe-suave);">Se cargan al iniciar…</span>
         </div>
       </div>
 
@@ -363,12 +351,14 @@
       </div>
     </section>
 
-    <footer>Calculadora de referencia — usa la función <code>calcular_tarifa()</code> definida en la migración de Supabase.
+    <footer>Calculadora de referencia — las tarifas se consultan a través de la API de StarGo.
       <br />
       <a href="admin.html" style="color:var(--terracota);font-weight:600;">⚙ Panel de administración</a>
     </footer>
-  </div>  <script>
-  let cliente = null;
+  </div>
+
+  <script src="stargo.js"></script>
+  <script>
   let mapaRecargos = {};
 
   const $ = (id) => document.getElementById(id);
@@ -382,35 +372,13 @@
     msg.className = 'mensaje' + (estado === 'ok' ? ' ok' : estado === 'error' ? ' error' : '');
   }
 
-  // ── Auto-conexión al cargar vía /api/config ──
-  async function autoConectar() {
+  // ── Carga de barrios y recargos desde la API ──
+  async function cargarDatos() {
     try {
-      const resp = await fetch('/api/config');
-      if (!resp.ok) throw new Error('HTTP ' + resp.status);
-      const { url, key, error } = await resp.json();
-      if (error) throw new Error(error);
-      if (!url || !key) throw new Error('Credenciales vacías');
-
-      // Rellenar los campos del formulario por feedback visual
-      $('input-url').value = url;
-      $('input-key').value = key;
-
-      await conectarCon(url, key);
-    } catch (err) {
-      // La función no está disponible → modo manual (formulario visible)
-      console.warn('Auto-conexión no disponible:', err.message);
-      fijarEstadoConexion('', 'Ingresa las credenciales de Supabase manualmente o configúralas en Vercel (SUPABASE_URL y SUPABASE_ANON_KEY).');
-    }
-  }
-
-  async function conectarCon(url, key) {
-    try {
-      cliente = supabase.createClient(url, key);
-
       const [{ data: barrios, error: errBarrios }, { data: recargos, error: errRecargos }] =
         await Promise.all([
-          cliente.from('barrios').select('id, nombre, zona_id').order('nombre'),
-          cliente.from('recargos').select('codigo, nombre, valor, tipo').order('tipo'),
+          api.from('barrios').select('id, nombre, zona_id').order('nombre'),
+          api.from('recargos').select('codigo, nombre, valor, tipo').order('tipo'),
         ]);
 
       if (errBarrios) throw errBarrios;
@@ -425,24 +393,9 @@
 
       fijarEstadoConexion('ok', `Conectado. ${disponibles.length} barrios disponibles${excluidos ? ` (${excluidos} en zona roja excluidos)` : ''} y ${recargos?.length || 0} recargos cargados.`);
       $('btn-calcular').disabled = false;
-      return;
-
     } catch (err) {
-      cliente = null;
-      fijarEstadoConexion('error', 'No se pudo conectar: ' + (err.message || err));
+      fijarEstadoConexion('error', 'No se pudieron cargar los datos: ' + (err.message || err));
     }
-  }
-
-  async function conectar() {
-    const url = $('input-url').value.trim();
-    const key = $('input-key').value.trim();
-
-    if (!url || !key) {
-      fijarEstadoConexion('error', 'Ingresa la Project URL y la anon key de tu proyecto de Supabase.');
-      return;
-    }
-
-    await conectarCon(url, key);
   }
 
   function poblarBarrios(barrios) {
@@ -490,17 +443,11 @@
     msg.className = 'mensaje';
     resultado.classList.add('oculto');
 
-    if (!cliente) {
-      msg.textContent = 'Conéctate a Supabase primero.';
-      msg.className = 'mensaje error';
-      return;
-    }
-
     $('btn-calcular').disabled = true;
     $('btn-calcular').textContent = 'Calculando…';
 
     try {
-      const { data: valorBase, error } = await cliente.rpc('calcular_tarifa', {
+      const { data: valorBase, error } = await api.rpc('calcular_tarifa', {
         p_barrio_origen: origenId,
         p_barrio_destino: destinoId,
       });
@@ -524,11 +471,10 @@
     }
   }
 
-  $('btn-conectar').addEventListener('click', conectar);
   $('btn-calcular').addEventListener('click', calcular);
 
-  // ── Iniciar auto-conexión ──
-  autoConectar();
+  // ── Iniciar carga de datos ──
+  cargarDatos();
 </script>
 </body>
 </html>

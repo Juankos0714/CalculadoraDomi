@@ -1,0 +1,39 @@
+# ════════════════════════════════════════════════════════════════════
+#  .gitignore — StarGo
+#  Se ignoran archivos de imagen y SQL que no son esenciales para el repo.
+# ════════════════════════════════════════════════════════════════════
+
+# ── Archivos SQL ─────────────────────────────────────────────────────
+# Solo quedan en el repo las migraciones canónicas del esquema:
+#   migracion_panel_barrios.sql
+#   migracion_admin_zonas_tarifas.sql
+# Todo lo demás (dumps de datos, migraciones puntuales de un solo uso)
+# se ignora. ⚠ migracion_completa_nuevo_proyecto.sql contiene la
+# contraseña del administrador en texto plano: nunca debe subirse.
+*.sql
+!migracion_admin_zonas_tarifas.sql
+!migracion_panel_barrios.sql
+
+# ── Imágenes ─────────────────────────────────────────────────────────
+# El sitio no usa imágenes locales (fuentes vía Google Fonts).
+# ImagenMarca/ contiene fotos de referencia de diseño (WhatsApp).
+ImagenMarca/
+*.png
+*.jpg
+*.jpeg
+*.webp
+*.gif
+*.svg
+*.ico
+
+# ── Documentos de referencia ─────────────────────────────────────────
+# Las versiones .md de estos documentos ya están en el repo.
+*.pdf
+
+# ── Sistema y entornos ───────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+.env
+.env.*
+!.env.example
+node_modules/

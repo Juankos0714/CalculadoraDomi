@@ -1,5 +1,5 @@
 -- =============================================================================
--- Migración: Administradores + Zonas + Matriz de Tarifas (A la Mano Mensajería)
+-- Migración: Administradores + Zonas + Matriz de Tarifas (StarGo)
 -- Ejecutar en el SQL Editor de Supabase, DESPUÉS de migracion_panel_barrios.sql
 --
 -- Agrega:
